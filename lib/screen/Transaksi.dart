@@ -1,0 +1,298 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/apitransaksi.dart';
+import 'package:flutter_application_1/screen/Landingpage.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
+import 'package:flutter_application_1/screen/Laporankeuangan.dart';
+
+class Transaksi extends StatefulWidget {
+  @override
+  State<Transaksi> createState() => _TransaksiState();
+}
+
+class _TransaksiState extends State<Transaksi> {
+  final _formKey = GlobalKey<FormState>();
+  final _Nama_BarangController = TextEditingController();
+  final _HargaController = TextEditingController();
+  final _TanggalController = TextEditingController();
+  final _JumlahController = TextEditingController();
+
+  String? selectedValue; // Untuk Voucher
+  String? selectedType;  // NEW: Untuk Pemasukan/Pengeluaran
+  
+  List<String> _listVoucher = []; 
+  bool _isLoadingVoucher = true;
+
+  final Apitransaksi apiTransaksi = Apitransaksi();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVouchers(); 
+  }
+
+  Future<void> _loadVouchers() async {
+    try {
+      List<String> vouchers = await apiTransaksi.fetchVoucherList();
+      setState(() {
+        _listVoucher = vouchers;
+        _isLoadingVoucher = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingVoucher = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _Nama_BarangController.dispose();
+    _HargaController.dispose();
+    _TanggalController.dispose();
+    _JumlahController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null) {
+      setState(() {
+        _TanggalController.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
+  }
+
+  Future<void> _submitData() async {
+    if (_formKey.currentState!.validate()) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Pastikan apiTransaksi.insertTransaksi sudah menerima parameter selectedType jika diperlukan database
+      bool success = await apiTransaksi.insertTransaksi(
+  _Nama_BarangController.text,
+  _HargaController.text,
+  _TanggalController.text,
+  _JumlahController.text,
+  selectedValue ?? "",
+  selectedType!, // Kirim 'Pemasukan' atau 'Pengeluaran'
+);
+      Navigator.pop(context); 
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Transaksi $selectedType berhasil ditambahkan')),
+        );
+        _clearForm();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal menambahkan transaksi.')),
+        );
+      }
+    }
+  }
+
+  void _clearForm() {
+    _Nama_BarangController.clear();
+    _HargaController.clear();
+    _TanggalController.clear();
+    _JumlahController.clear();
+    setState(() {
+      selectedValue = null;
+      selectedType = null; // Reset dropdown tipe
+    });
+  }
+
+  Widget _buildFooterIcon({
+    required IconData icon, 
+    required Color color, 
+    required VoidCallback onTap
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black, width: 1.5),
+        ),
+        child: Icon(
+          icon,
+          color: Colors.black,
+          size: 28,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF5D48ED),
+            borderRadius: BorderRadius.only(bottomRight: Radius.circular(70)),
+          ),
+          child: const SafeArea(
+            child: Center(
+              child: Text(
+                "TRANSAKSI",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+
+              // DROPDOWN JENIS TRANSAKSI DENGAN VALIDASI
+              DropdownButtonFormField<String>(
+                value: selectedType,
+                hint: const Text("Pilih Jenis Transaksi"),
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(), 
+                  labelText: 'Jenis Transaksi', 
+                  prefixIcon: Icon(Icons.swap_vert),
+                ),
+                items: ['Pemasukan', 'Pengeluaran'].map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                validator: (v) => v == null ? 'Jenis transaksi wajib dipilih' : null,
+                onChanged: (val) => setState(() => selectedType = val),
+              ),
+              const SizedBox(height: 16),
+              
+              TextFormField(
+                controller: _Nama_BarangController,
+                decoration: const InputDecoration(labelText: 'Nama Barang', border: OutlineInputBorder(), prefixIcon: Icon(Icons.shopping_bag)),
+                validator: (v) => v!.isEmpty ? 'Nama barang wajib diisi' : null,
+              ),
+              const SizedBox(height: 16),
+              
+              TextFormField(
+                controller: _HargaController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Harga', border: OutlineInputBorder(), prefixIcon: Icon(Icons.attach_money)),
+                validator: (v) => v!.isEmpty ? 'Harga wajib diisi' : null,
+              ),
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<String>(
+                value: selectedValue,
+                hint: const Text("Pilih Voucher "),
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(), 
+                  labelText: 'Voucher', 
+                  prefixIcon: Icon(Icons.confirmation_number),
+                ),
+                items: _listVoucher.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (val) => setState(() => selectedValue = val),
+              ),
+
+              const SizedBox(height: 16),
+              
+              TextFormField(
+                controller: _JumlahController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Jumlah', border: OutlineInputBorder(), prefixIcon: Icon(Icons.add_shopping_cart)),
+                validator: (v) => v!.isEmpty ? 'Jumlah wajib diisi' : null,
+              ),
+              const SizedBox(height: 16),
+              
+              TextFormField(
+                controller: _TanggalController,
+                readOnly: true,
+                onTap: () => _selectDate(context),
+                decoration: const InputDecoration(
+                  labelText: 'Tanggal Transaksi',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.calendar_today),
+                ),
+                validator: (v) => v!.isEmpty ? 'Tanggal wajib dipilih' : null,
+              ),
+              const SizedBox(height: 30),
+              
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: FilledButton(
+                  onPressed: _submitData,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF5D48ED),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Kirim Transaksi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+      
+      bottomNavigationBar: Container(
+        height: 80,
+        decoration: const BoxDecoration(
+          color: Color(0xFF00E5BC),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildFooterIcon(
+              icon: Icons.assignment,
+              color: Colors.yellow[600]!,
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan()));
+              },
+            ),
+            _buildFooterIcon(
+              icon: Icons.home_outlined,
+              color: const Color(0xFF1A437E),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => Landingpage()));
+              },
+            ),
+            _buildFooterIcon(
+              icon: Icons.payments_outlined,
+              color: Colors.red,
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => Laporankeuangan()));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

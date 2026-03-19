@@ -1,0 +1,280 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_application_1/screen/Landingpage.dart';
+import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
+
+class Laporankeuangan extends StatefulWidget {
+  @override
+  _LaporankeuanganState createState() => _LaporankeuanganState();
+}
+
+class _LaporankeuanganState extends State<Laporankeuangan> {
+  String? _selectedYear;
+  String? _selectedMonth;
+  final TextEditingController _searchController = TextEditingController();
+
+  // FUNGSI YEAR PICKER
+  Future<void> _selectYear(BuildContext context) async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Pilih Tahun"),
+          content: SizedBox(
+            width: 300,
+            height: 300,
+            child: YearPicker(
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2030),
+              initialDate: DateTime.now(),
+              selectedDate: (_selectedYear == null || _selectedYear == "Semua")
+                  ? DateTime.now()
+                  : DateTime(int.parse(_selectedYear!)),
+              onChanged: (DateTime dateTime) {
+                setState(() {
+                  _selectedYear = dateTime.year.toString();
+                });
+                Navigator.pop(context);
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedYear = "Semua";
+                });
+                Navigator.pop(context);
+              },
+              child: const Text("Tampilkan Semua"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9F9F9),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF5D48ED),
+            borderRadius: BorderRadius.only(bottomRight: Radius.circular(70)),
+          ),
+          child: const SafeArea(
+            child: Center(
+              child: Text(
+                "LAPORAN KEUANGAN",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          // HEADER
+          // Container(
+          //   height: 140,
+          //   width: double.infinity,
+          //   decoration: const BoxDecoration(
+          //     color: Color(0xFF5D48ED),
+          //     borderRadius: BorderRadius.only(bottomRight: Radius.circular(80)),
+          //   ),
+          //   child: const SafeArea(
+          //     child: Center(
+          //       child: Text(
+          //         'LAPORAN KEUANGAN',
+          //         style: TextStyle(
+          //             color: Colors.white,
+          //             fontWeight: FontWeight.bold,
+          //             fontSize: 18),
+          //       ),
+          //     ),
+          //   ),
+          // ),
+
+          const SizedBox(height: 20),
+
+          // BARIS FILTER
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            child: Row(
+              children: [
+                const Text("tahun",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const SizedBox(width: 5),
+                InkWell(
+                  onTap: () => _selectYear(context),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(_selectedYear ?? "Pilih",
+                            style: const TextStyle(fontSize: 12)),
+                        const Icon(Icons.arrow_drop_down, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _buildDropdown(
+                  value: _selectedMonth,
+                  hint: "Bln",
+                  items: ["Semua", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"],
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedMonth = val;
+                    });
+                  },
+                ),
+                const Spacer(),
+                Container(
+                  width: 130,
+                  height: 35,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD9D9D9),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      contentPadding: EdgeInsets.only(bottom: 12, left: 10),
+                      border: InputBorder.none,
+                      suffixIcon: Icon(Icons.search, color: Colors.black, size: 20),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 15),
+
+          // TABEL DATA (CELL KOSONG)
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 15),
+                  child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
+                    border: TableBorder.all(color: Colors.grey[300]!),
+                    columns: const [
+                      DataColumn(label: Text('NO')),
+                      DataColumn(label: Text('Nama Barang /\nVoucher')),
+                      DataColumn(label: Text('Pemasukan')),
+                      DataColumn(label: Text('Pengeluaran')),
+                      DataColumn(label: Text('Tanggal')),
+                        DataColumn(label: Text('Total pemasukan')),
+                          DataColumn(label: Text('Total pengeluaran')),
+                            DataColumn(label: Text('Laba bersih')),
+                    ],
+                    rows: [
+                      DataRow(cells: [
+                        DataCell(Text("")), // No
+                        DataCell(Text("")), // Nama
+                        DataCell(Text("")), // Masuk
+                        DataCell(Text("")), // Keluar
+                        DataCell(Text("")),
+                        DataCell(Text("")), // Tanggal
+                        DataCell(Text("")),
+                        DataCell(Text("")),
+                       
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+
+      // FOOTER
+      bottomNavigationBar: Container(
+        height: 80,
+        decoration: const BoxDecoration(
+          color: Color(0xFF00E5BC),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildFooterIcon(
+              icon: Icons.assignment,
+              color: Colors.yellow[600]!,
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan()));
+              },
+            ),
+            _buildFooterIcon(
+              icon: Icons.home_outlined,
+              color: const Color(0xFF1A437E),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => Landingpage()));
+              },
+            ),
+            _buildFooterIcon(
+              icon: Icons.payments_outlined,
+              color: Colors.red,
+              onTap: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdown({String? value, required String hint, required List<String> items, required Function(String?) onChanged}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isDense: true,
+          hint: Text(hint, style: const TextStyle(fontSize: 12)),
+          items: items.map((String val) {
+            return DropdownMenuItem<String>(value: val, child: Text(val, style: const TextStyle(fontSize: 12)));
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooterIcon({required IconData icon, required Color color, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black, width: 1.5),
+        ),
+        child: Icon(icon, color: Colors.black, size: 28),
+      ),
+    );
+  }
+}

@@ -1,0 +1,267 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/repository.dart';
+import 'package:flutter_application_1/model/postproduk.dart';
+import 'package:flutter_application_1/screen/EditDataproduk.dart';
+// Import halaman untuk navigasi footer
+import 'package:flutter_application_1/screen/Landingpage.dart';
+import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
+import 'package:flutter_application_1/screen/Laporankeuangan.dart';
+
+class Detailproduk extends StatefulWidget {
+  final int? id;
+
+  const Detailproduk({Key? key, this.id}) : super(key: key);
+
+  @override
+  State<Detailproduk> createState() => _DetailprodukState();
+}
+
+class _DetailprodukState extends State<Detailproduk> {
+  final Repository apiService = Repository();
+  Postproduk? produk;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDetailData();
+  }
+
+  Future<void> _loadDetailData() async {
+    setState(() => isLoading = true);
+    try {
+      final data = await apiService.fetchPostById(widget.id!);
+      setState(() {
+        produk = data;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() => isLoading = false);
+      print("Error detail: $e");
+    }
+  }
+
+  Future<void> _deleteData() async {
+    if (widget.id != null) {
+      bool success = await apiService.deletePost(widget.id!);
+      if (success) {
+        if (!mounted) return;
+        Navigator.pop(context, true);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF5D48ED),
+            borderRadius: BorderRadius.only(bottomRight: Radius.circular(70)),
+          ),
+          child: const SafeArea(
+            child: Center(
+              child: Text(
+                "DETAIL PRODUK",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : produk == null
+              ? const Center(child: Text("Data tidak ditemukan"))
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(25, 30, 25, 120), // Tambah padding bawah agar tidak tertutup footer
+                  child: _buildProductCard(produk!),
+                ),
+      
+      // FOOTER DISESUAIKAN DENGAN CLASS TRANSAKSI
+      bottomNavigationBar: Container(
+        height: 80,
+        decoration: const BoxDecoration(
+          color: Color(0xFF00E5BC), // Warna Toska
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            // Ikon Laporan Penjualan (Kuning)
+            _buildFooterIcon(
+              icon: Icons.assignment,
+              color: Colors.yellow[600]!,
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan()));
+              },
+            ),
+            // Ikon Home (Biru Tua)
+            _buildFooterIcon(
+              icon: Icons.home_outlined,
+              color: const Color(0xFF1A437E),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => Landingpage()));
+              },
+            ),
+            // Ikon Laporan Keuangan (Merah)
+            _buildFooterIcon(
+              icon: Icons.payments_outlined,
+              color: Colors.red,
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => Laporankeuangan()));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductCard(Postproduk post) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Center(
+            child: post.image != null
+                ? Image.network(
+          // GANTI 10.0.2.2 menjadi 192.168.1.3
+          "http://192.168.1.177:8000/storage/${post.image}?v=${DateTime.now().millisecondsSinceEpoch}",
+          height: 120,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+        
+            print("Link Error Detail: http://192.168.1.177:8000/storage/${post.image}");
+            return const Icon(Icons.broken_image, size: 80);
+          },
+        )
+      : const Icon(Icons.image_not_supported, size: 80),
+),
+          const SizedBox(height: 30),
+          _buildInfoRow("Nama Voucher", post.Nama_Barang ?? "-"),
+          const SizedBox(height: 12),
+          _buildInfoRow("Harga", "Rp ${post.Harga}"),
+          const SizedBox(height: 12),
+          _buildInfoRow("Stok", post.Stok.toString()),
+          _buildInfoRow("Voucher", post.voucher ?? "-"),
+          const SizedBox(height: 40),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: () => _showDeleteDialog(),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    border: Border.all(color: Colors.black, width: 1.5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(Icons.delete_outline, color: Colors.black, size: 30),
+                ),
+              ),
+              const SizedBox(width: 50),
+              GestureDetector(
+                onTap: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => EditDataproduk(postproduk: post))
+                  );
+                  if (result == true) {
+                    PaintingBinding.instance.imageCache.clear();
+                    PaintingBinding.instance.imageCache.clearLiveImages();
+                    _loadDetailData();
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.green, width: 2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(Icons.edit_outlined, color: Colors.green, size: 30),
+                ),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold))
+        ),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0E0E0),
+              borderRadius: BorderRadius.circular(4)
+            ),
+            child: Text(value, style: const TextStyle(fontSize: 14)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // HELPER FOOTER: Disesuaikan dengan class Transaksi (Lingkaran + Border)
+  Widget _buildFooterIcon({required IconData icon, required Color color, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black, width: 1.5),
+        ),
+        child: Icon(icon, color: Colors.black, size: 28),
+      ),
+    );
+  }
+
+  void _showDeleteDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Hapus Produk?"),
+        content: const Text("Data yang dihapus tidak dapat dikembalikan."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteData();
+            },
+            child: const Text("Hapus", style: TextStyle(color: Colors.red))
+          ),
+        ],
+      ),
+    );
+  }
+}
