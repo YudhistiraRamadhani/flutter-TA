@@ -1,26 +1,11 @@
-
-
-class Posttransaksi {
-  final int? id;
-  final String? Nama_Barang;
-
- 
-  Posttransaksi({this.id, this.Nama_Barang});
-
-  factory Posttransaksi.fromJson(Map<String, dynamic> json) {
-    return Posttransaksi(
-      id: json['id'],
-      Nama_Barang: json['Nama_Barang'],
-    );
-  }
-}
 class Postproduk {
   int? id;
   String? Nama_Barang;
   String? Harga;
   String? Stok;
   String? image;
-  String? voucher;
+ 
+  String? jenis_barang; // <--- TAMBAHAN BARU
 
   Postproduk({
     this.id,
@@ -28,24 +13,25 @@ class Postproduk {
     this.Harga,
     this.Stok,
     this.image,
-    this.voucher,
+  
+    this.jenis_barang, // <--- TAMBAHAN BARU
   });
- 
-String get fullImageUrl {
+
+  String get fullImageUrl {
     if (image != null && image!.isNotEmpty) {
-      // Pastikan IP ini sama dengan baseUrl di Repository Anda
-      return "http://192.168.1.3:8000/storage/$image";
+      return "http://192.168.1.5:8000/storage/$image";
     }
-    // Gambar placeholder jika null
-    return "https://via.placeholder.com/150"; 
+    return "https://via.placeholder.com/150";
   }
+
   Postproduk.fromJson(Map<String, dynamic> json) {
     id = json['id'];
     Nama_Barang = json['Nama_Barang'];
-    Harga = json['Harga'];
-    Stok = json['Stok'];
+    Harga = json['Harga']?.toString(); // Pastikan diconvert ke String jika dari API berupa int
+    Stok = json['Stok']?.toString();
     image = json['image'];
-    voucher = json['voucher'];
+   
+    jenis_barang = json['jenis_barang']; // <--- TAMBAHAN BARU
   }
 
   Map<String, dynamic> toJson() {
@@ -55,7 +41,8 @@ String get fullImageUrl {
     data['Harga'] = Harga;
     data['Stok'] = Stok;
     data['image'] = image;
-    data['voucher'] = voucher;
+   
+    data['jenis_barang'] = jenis_barang; 
     return data;
   }
 }

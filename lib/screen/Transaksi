@@ -80,8 +80,13 @@ class _TransaksiState extends State<Transaksi> {
   _HargaController.text,
   _TanggalController.text,
   _JumlahController.text,
+  
   selectedValue ?? "",
-  selectedType!, // Kirim 'Pemasukan' atau 'Pengeluaran'
+  selectedType!,
+   "Barang",
+   "Pemasukan",
+ 
+
 );
       Navigator.pop(context); 
 

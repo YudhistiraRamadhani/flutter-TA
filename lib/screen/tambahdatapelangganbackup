@@ -1,0 +1,315 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/apidatapelanggan.dart';
+import 'package:flutter_application_1/model/postdatapelanggan.dart';
+import 'package:flutter_application_1/screen/Landingpage.dart';
+import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
+import 'package:flutter_application_1/screen/Laporankeuangan.dart';
+
+class Tambahdatapelanggan extends StatefulWidget {
+  const Tambahdatapelanggan({super.key});
+
+  @override
+  State<Tambahdatapelanggan> createState() => _TambahdatapelangganState();
+}
+
+class _TambahdatapelangganState extends State<Tambahdatapelanggan> {
+  final _formKey = GlobalKey<FormState>();
+  final apidatapelanggan apiService = apidatapelanggan();
+
+  final _namaController = TextEditingController();
+  final _waController = TextEditingController();
+  final _pesanController = TextEditingController();
+
+  List<Postdatapelanggan> _allPelanggan = [];
+  bool _isLoadingData = false;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPelangganData();
+  }
+
+  Future<void> _loadPelangganData() async {
+    setState(() {
+      _isLoadingData = true;
+    });
+    
+    try {
+      final data = await apiService.fetchAllPelanggan();
+      setState(() {
+        _allPelanggan = data;
+      });
+    } catch (e) {
+      debugPrint("Error loading data: $e");
+    } finally {
+      setState(() {
+        _isLoadingData = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _namaController.dispose();
+    _waController.dispose();
+    _pesanController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isSaving = true);
+      
+      bool success = await apiService.insertData(
+        _namaController.text,
+        _waController.text,
+        _pesanController.text,
+      );
+
+      setState(() => _isSaving = false);
+
+      if (success) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Berhasil Simpan!"), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context, true);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Gagal Simpan!"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  List<Postdatapelanggan> _getSuggestionsByName(String searchText) {
+    if (searchText.isEmpty) return [];
+    return _allPelanggan.where((pelanggan) {
+      final namaLower = pelanggan.nama_pelanggan?.toLowerCase() ?? '';
+      final searchLower = searchText.toLowerCase();
+      return namaLower.contains(searchLower);
+    }).toList();
+  }
+
+  List<Postdatapelanggan> _getSuggestionsByWA(String searchText) {
+    if (searchText.isEmpty) return [];
+    return _allPelanggan.where((pelanggan) {
+      final waLower = pelanggan.no_whatsapp?.toLowerCase() ?? '';
+      final searchLower = searchText.toLowerCase();
+      return waLower.contains(searchLower);
+    }).toList();
+  }
+
+  Widget _buildNamaAutocomplete() {
+    return Autocomplete<Postdatapelanggan>(
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return const Iterable<Postdatapelanggan>.empty();
+        }
+        return _getSuggestionsByName(textEditingValue.text);
+      },
+      displayStringForOption: (Postdatapelanggan option) => option.nama_pelanggan ?? '',
+      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+        // Sinkronisasi controller internal dengan controller utama
+        if (_namaController.text != textEditingController.text && _namaController.text.isNotEmpty && textEditingController.text.isEmpty) {
+             textEditingController.text = _namaController.text;
+        }
+
+        return TextFormField(
+          controller: textEditingController,
+          focusNode: focusNode,
+          decoration: const InputDecoration(
+            hintText: "Masukkan nama pelanggan",
+            prefixIcon: Icon(Icons.person),
+            border: OutlineInputBorder(),
+          ),
+          validator: (v) => v!.isEmpty ? "Wajib diisi" : null,
+          onChanged: (value) {
+            _namaController.text = value;
+          },
+        );
+      },
+      onSelected: (Postdatapelanggan selected) {
+        setState(() {
+          _namaController.text = selected.nama_pelanggan ?? '';
+          _waController.text = selected.no_whatsapp ?? '';
+        });
+        FocusScope.of(context).unfocus();
+      },
+    );
+  }
+
+  Widget _buildWaAutocomplete() {
+    return Autocomplete<Postdatapelanggan>(
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return const Iterable<Postdatapelanggan>.empty();
+        }
+        return _getSuggestionsByWA(textEditingValue.text);
+      },
+      displayStringForOption: (Postdatapelanggan option) => option.no_whatsapp ?? '',
+      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+        // Sinkronisasi controller internal dengan controller utama
+        if (_waController.text != textEditingController.text && _waController.text.isNotEmpty && textEditingController.text.isEmpty) {
+             textEditingController.text = _waController.text;
+        }
+
+        return TextFormField(
+          controller: textEditingController,
+          focusNode: focusNode,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(
+            hintText: "Contoh: 08123xxx",
+            prefixIcon: Icon(Icons.phone),
+            border: OutlineInputBorder(),
+          ),
+          validator: (v) => v!.isEmpty ? "Wajib diisi" : null,
+          onChanged: (value) {
+            _waController.text = value;
+          },
+        );
+      },
+      onSelected: (Postdatapelanggan selected) {
+        setState(() {
+          _waController.text = selected.no_whatsapp ?? '';
+          _namaController.text = selected.nama_pelanggan ?? '';
+        });
+        FocusScope.of(context).unfocus();
+      },
+    );
+  }
+
+  Widget _buildFooterIcon({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black, width: 1.5),
+        ),
+        child: Icon(icon, color: Colors.black, size: 28),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF5D48ED),
+            borderRadius: BorderRadius.only(bottomRight: Radius.circular(70)),
+          ),
+          child: SafeArea(
+            child: Stack(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                const Center(
+                  child: Text(
+                    "TAMBAH DATA PELANGGAN",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: _isLoadingData
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
+                    const Text("Nama Pelanggan", style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    _buildNamaAutocomplete(),
+                    const SizedBox(height: 16),
+                    const Text("Nomor WhatsApp", style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    _buildWaAutocomplete(),
+                    const SizedBox(height: 16),
+                    const Text("Isi Pesan Notifikasi", style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _pesanController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        hintText: "Masukkan pesan...",
+                        prefixIcon: Icon(Icons.message),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) => v!.isEmpty ? "Wajib diisi" : null,
+                    ),
+                    const SizedBox(height: 30),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 55,
+                      child: FilledButton(
+                        onPressed: _isSaving ? null : _submit,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF5D48ED),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: _isSaving 
+                          ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2) 
+                          : const Text("SIMPAN DATA", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ),
+      bottomNavigationBar: Container(
+        height: 80,
+        decoration: const BoxDecoration(
+          color: Color(0xFF00E5BC),
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildFooterIcon(
+              icon: Icons.assignment,
+              color: Colors.yellow[600]!,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) =>  Laporanpenjualan())),
+            ),
+            _buildFooterIcon(
+              icon: Icons.home_outlined,
+              color: const Color(0xFF1A437E),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const Landingpage())),
+            ),
+            _buildFooterIcon(
+              icon: Icons.payments_outlined,
+              color: Colors.red,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const Laporankeuangan())),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,481 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/apidatapelanggan.dart';
+import 'package:flutter_application_1/model/postdatapelanggan.dart';
+import 'package:flutter_application_1/screen/Tambahdatapelanggan.dart';
+import 'package:flutter_application_1/screen/EditDatapelanggan.dart';
+import 'package:flutter_application_1/screen/DetailDatapelanggan.dart';
+import 'package:flutter_application_1/screen/Landingpage.dart';
+import 'package:flutter_application_1/screen/Laporankeuangan.dart';
+import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
+
+class Datapelanggan extends StatefulWidget {
+  const Datapelanggan({super.key});
+
+  @override
+  State<Datapelanggan> createState() => _DatapelangganState();
+}
+
+class _DatapelangganState extends State<Datapelanggan> {
+  final apidatapelanggan api = apidatapelanggan();
+  List<Postdatapelanggan> pelanggan = [];
+  List<Postdatapelanggan> filteredPelanggan = [];
+  List<String> selectedPelanggan = []; 
+  
+  bool isLoading = true;
+  bool isBroadcastSameMessage = false;
+  String? detectedSameMessage;
+  List<Postdatapelanggan> pelangganWithSameMessage = [];
+  
+  TextEditingController searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    loadData();
+  }
+
+  Future<void> loadData() async {
+    if (!mounted) return;
+    setState(() => isLoading = true);
+    try {
+      final data = await api.fetchTransaksi(1);
+      setState(() {
+        pelanggan = data['datapelanggan'];
+        filteredPelanggan = pelanggan;
+        selectedPelanggan.clear(); 
+        isBroadcastSameMessage = false;
+        detectedSameMessage = null;
+        pelangganWithSameMessage = [];
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal memuat data: $e")),
+        );
+      }
+    }
+  }
+
+  void _filterSearch(String query) {
+    setState(() {
+      filteredPelanggan = pelanggan
+          .where((item) =>
+              item.nama_pelanggan!.toLowerCase().contains(query.toLowerCase()) ||
+              item.no_whatsapp!.contains(query))
+          .toList();
+    });
+  }
+
+  void _toggleSelectAll(bool? value) {
+    setState(() {
+      if (value == true) {
+        selectedPelanggan = filteredPelanggan
+            .map((item) => item.id.toString())
+            .toList();
+      } else {
+        selectedPelanggan.clear();
+      }
+      _checkSameMessageOnSelected();
+    });
+  }
+
+  void _onCheckboxChanged(String id, bool? value) {
+    setState(() {
+      if (value == true) {
+        // Cari pelanggan yang dicentang
+        final selectedData = pelanggan.firstWhere((p) => p.id.toString() == id);
+        final selectedMessage = selectedData.pesannotifikasi ?? "";
+        
+        if (selectedMessage.isNotEmpty) {
+          // Cari semua pelanggan dengan pesan yang sama
+          final pelangganWithSameMsg = pelanggan.where((p) => 
+            p.pesannotifikasi != null && 
+            p.pesannotifikasi == selectedMessage
+          ).toList();
+          
+          // Tambahkan semua pelanggan dengan pesan yang sama ke selectedPelanggan
+          for (var p in pelangganWithSameMsg) {
+            if (!selectedPelanggan.contains(p.id.toString())) {
+              selectedPelanggan.add(p.id.toString());
+            }
+          }
+        } else {
+          // Jika pesan kosong, tambahkan biasa saja
+          if (!selectedPelanggan.contains(id)) {
+            selectedPelanggan.add(id);
+          }
+        }
+      } else {
+        // Hapus centang
+        selectedPelanggan.remove(id);
+      }
+      _checkSameMessageOnSelected();
+    });
+  }
+
+  void _checkSameMessageOnSelected() {
+    if (selectedPelanggan.isEmpty) {
+      isBroadcastSameMessage = false;
+      detectedSameMessage = null;
+      pelangganWithSameMessage = [];
+      return;
+    }
+
+    // Ambil data pelanggan yang dipilih
+    final selectedData = pelanggan.where((p) => selectedPelanggan.contains(p.id.toString())).toList();
+    
+    if (selectedData.isEmpty) {
+      isBroadcastSameMessage = false;
+      detectedSameMessage = null;
+      pelangganWithSameMessage = [];
+      return;
+    }
+
+    // Ambil pesan dari pelanggan pertama yang dipilih
+    final firstSelectedMessage = selectedData.first.pesannotifikasi ?? "";
+    
+    if (firstSelectedMessage.isEmpty) {
+      isBroadcastSameMessage = false;
+      detectedSameMessage = null;
+      pelangganWithSameMessage = [];
+      return;
+    }
+
+    // Cek apakah semua pelanggan yang dipilih memiliki pesan yang sama
+    bool allHaveSameMessage = selectedData.every((p) => 
+      (p.pesannotifikasi ?? "") == firstSelectedMessage
+    );
+
+    if (allHaveSameMessage && selectedData.length > 1) {
+      // Cari semua pelanggan (termasuk yang tidak dipilih) yang memiliki pesan yang sama
+      final allWithSameMessage = pelanggan.where((p) => 
+        (p.pesannotifikasi ?? "") == firstSelectedMessage
+      ).toList();
+      
+      setState(() {
+        isBroadcastSameMessage = true;
+        detectedSameMessage = firstSelectedMessage;
+        pelangganWithSameMessage = allWithSameMessage;
+      });
+    } else {
+      setState(() {
+        isBroadcastSameMessage = false;
+        detectedSameMessage = null;
+        pelangganWithSameMessage = [];
+      });
+    }
+  }
+
+  // Broadcast untuk pesan yang sama (ke semua pelanggan dengan pesan notifikasi yang sama)
+  void _sendBroadcastSameMessage() async {
+    if (pelangganWithSameMessage.isEmpty) return;
+
+    setState(() => isLoading = true);
+
+    int successCount = 0;
+    int totalCount = pelangganWithSameMessage.length;
+
+    for (var p in pelangganWithSameMessage) {
+      if (p.no_whatsapp != null && p.no_whatsapp!.isNotEmpty && 
+          p.pesannotifikasi != null && p.pesannotifikasi!.isNotEmpty) {
+        bool success = await api.sendBroadcast(p.no_whatsapp!, p.pesannotifikasi!);
+        if (success) successCount++;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+        selectedPelanggan.clear();
+        isBroadcastSameMessage = false;
+        detectedSameMessage = null;
+        pelangganWithSameMessage = [];
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Broadcast pesan sama: Berhasil ke $successCount dari $totalCount pelanggan"),
+          backgroundColor: successCount > 0 ? Colors.green : Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Broadcast original (ke pelanggan yang dipilih saja)
+  void _sendBroadcast() async {
+    if (selectedPelanggan.isEmpty) return;
+
+    setState(() => isLoading = true);
+
+    try {
+      int successCount = 0;
+
+      for (String id in selectedPelanggan) {
+        final p = pelanggan.firstWhere((item) => item.id.toString() == id);
+        
+        String nomor = p.no_whatsapp!;
+        String isiPesan = (p.pesannotifikasi != null && p.pesannotifikasi!.isNotEmpty) 
+            ? p.pesannotifikasi! 
+            : "";
+
+        if (isiPesan.isNotEmpty) {
+          bool success = await api.sendBroadcast(nomor, isiPesan);
+          if (success) successCount++;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          selectedPelanggan.clear();
+          isBroadcastSameMessage = false;
+          detectedSameMessage = null;
+          pelangganWithSameMessage = [];
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Berhasil mengirim $successCount dari ${selectedPelanggan.length} pesan"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal mengirim: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _confirmDelete(String id) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Hapus Data"),
+        content: const Text("Yakin ingin menghapus pelanggan ini?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          TextButton(
+            onPressed: () async {
+              bool success = await api.deletePelanggan(id);
+              if (success) {
+                if (mounted) {
+                  Navigator.pop(context);
+                  loadData();
+                }
+              }
+            },
+            child: const Text("Hapus", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterIcon({required IconData icon, required Color color, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50, height: 50,
+        decoration: BoxDecoration(
+          color: color, 
+          shape: BoxShape.circle, 
+          border: Border.all(color: Colors.black, width: 1.5)
+        ),
+        child: Icon(icon, color: Colors.white, size: 28),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    bool isAllSelected = filteredPelanggan.isNotEmpty && 
+                         selectedPelanggan.length == filteredPelanggan.length;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF5D48ED), 
+            borderRadius: BorderRadius.only(bottomRight: Radius.circular(70))
+          ),
+          child: SafeArea(
+            child: Stack(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                const Center(
+                  child: Text(
+                    "DATA PELANGGAN",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TextField(
+                    controller: searchController,
+                    onChanged: _filterSearch,
+                    decoration: InputDecoration(
+                      hintText: "Cari Nama atau WhatsApp...",
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                
+                // Informasi pesan sama (muncul jika terdeteksi)
+                if (isBroadcastSameMessage)
+                  Container(
+                    margin: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            "Terpilih ${selectedPelanggan.length} pelanggan dengan PESAN SAMA. Akan mengirim ke ${pelangganWithSameMessage.length} pelanggan yang memiliki pesan '${detectedSameMessage}'.",
+                            style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                
+                CheckboxListTile(
+                  title: const Text("Pilih Semua", style: TextStyle(fontSize: 14)),
+                  value: isAllSelected,
+                  onChanged: _toggleSelectAll,
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: SizedBox(
+                    width: double.infinity, height: 45,
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const Tambahdatapelanggan())).then((v) => loadData()),
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      label: const Text("TAMBAH DATA"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF5D48ED), 
+                        foregroundColor: Colors.white, 
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(10),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        headingRowColor: MaterialStateProperty.all(Colors.grey[100]),
+                        columns: const [
+                          DataColumn(label: Text('PILIH')),
+                          DataColumn(label: Text('NAMA')),
+                          DataColumn(label: Text('WHATSAPP')),
+                          DataColumn(label: Text('AKSI')),
+                        ],
+                        rows: filteredPelanggan.map((item) {
+                          final isSelected = selectedPelanggan.contains(item.id.toString());
+                          
+                          return DataRow(
+                            selected: isSelected,
+                            cells: [
+                              DataCell(
+                                Checkbox(
+                                  value: isSelected, 
+                                  onChanged: (val) => _onCheckboxChanged(item.id.toString(), val),
+                                )
+                              ),
+                              DataCell(Text(item.nama_pelanggan ?? "-")),
+                              DataCell(Text(item.no_whatsapp ?? "-")),
+                              DataCell(Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.visibility, color: Colors.green, size: 20), 
+                                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DetailDatapelanggan(pelanggan: item))).then((v) => loadData())
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, color: Colors.blue, size: 20), 
+                                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => EditDatapelanggan(pelanggan: item))).then((v) => loadData())
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red, size: 20), 
+                                    onPressed: () => _confirmDelete(item.id.toString())
+                                  ),
+                                ],
+                              )),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+      bottomNavigationBar: Container(
+        height: 80,
+        decoration: const BoxDecoration(
+          color: Color(0xFF00E5BC), 
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25))
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildFooterIcon(icon: Icons.assignment, color: Colors.yellow[700]!, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan()))),
+            _buildFooterIcon(icon: Icons.home, color: const Color(0xFF1A437E), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const Landingpage()))),
+            _buildFooterIcon(icon: Icons.payments, color: Colors.red, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const Laporankeuangan()))),
+          ],
+        ),
+      ),
+      floatingActionButton: selectedPelanggan.isNotEmpty
+          ? FloatingActionButton.extended(
+              onPressed: isLoading 
+                  ? null 
+                  : (isBroadcastSameMessage ? _sendBroadcastSameMessage : _sendBroadcast),
+              label: Text(
+                isLoading 
+                    ? "MENGIRIM..." 
+                    : (isBroadcastSameMessage 
+                        ? "BROADCAST PESAN SAMA (${pelangganWithSameMessage.length})" 
+                        : "KIRIM KE ${selectedPelanggan.length}"),
+                style: const TextStyle(fontSize: 12),
+              ),
+              icon: Icon(isBroadcastSameMessage ? Icons.broadcast_on_personal : Icons.campaign),
+              backgroundColor: isBroadcastSameMessage ? Colors.orange : Colors.green,
+            )
+          : null,
+    );
+  }
+}

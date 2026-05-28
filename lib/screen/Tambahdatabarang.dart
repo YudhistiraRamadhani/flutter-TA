@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:flutter_application_1/api/repository.dart';
-
+import 'package:flutter_application_1/api/repository.dart'; 
 
 import 'package:flutter_application_1/screen/Landingpage.dart';
 import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
 import 'package:flutter_application_1/screen/Laporankeuangan.dart';
-
-const List<String> list = <String>['One', 'Two', 'Three', 'Four'];
 
 class Tambahdatabarang extends StatefulWidget {
   const Tambahdatabarang({Key? key}) : super(key: key);
@@ -19,44 +16,55 @@ class Tambahdatabarang extends StatefulWidget {
 
 class _TambahdatabarangState extends State<Tambahdatabarang> {
   final _formKey = GlobalKey<FormState>();
-//deklarasi controller untuk form input sesuai API
-  final _titleController = TextEditingController();
-  final _priceController = TextEditingController();
-  final _stockController = TextEditingController();
-  final _voucherController = TextEditingController();
+
+  // Gunakan late untuk efisiensi inisialisasi
+  late TextEditingController _titleController;
+  late TextEditingController _priceController;
+  late TextEditingController _stockController;
+  late TextEditingController _jenisBarangController;
 
   final _titleFocus = FocusNode();
   final _priceFocus = FocusNode();
   final _stockFocus = FocusNode();
-  final _voucherFocus = FocusNode();
+  final _jenisFocus = FocusNode();
 
   File? _image;
-  final picker = ImagePicker();
+  final ImagePicker picker = ImagePicker();
   final Repository apiService = Repository();
 
+  @override
+  void initState() {
+    super.initState();
+    // Inisialisasi controller di sini agar tidak berat saat build
+    _titleController = TextEditingController();
+    _priceController = TextEditingController();
+    _stockController = TextEditingController();
+    _jenisBarangController = TextEditingController();
+  }
+
   Future getImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 50, // Kecilkan kualitas untuk menghemat memori & mempercepat upload
+    );
     setState(() {
       if (pickedFile != null) {
         _image = File(pickedFile.path);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No Image Selected')),
-        );
       }
     });
   }
 
   @override
   void dispose() {
+  
     _titleController.dispose();
     _priceController.dispose();
     _stockController.dispose();
-    _voucherController.dispose();
+    _jenisBarangController.dispose();
     _titleFocus.dispose();
     _priceFocus.dispose();
     _stockFocus.dispose();
-    _voucherFocus.dispose();
+    _jenisFocus.dispose();
     super.dispose();
   }
 
@@ -68,54 +76,40 @@ class _TambahdatabarangState extends State<Tambahdatabarang> {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      bool success = await apiService.insertPost(
-        _image,
-        _titleController.text,
-        _priceController.text,
-        _stockController.text,
-        _voucherController.text,
-      );
+      try {
+        bool success = await apiService.insertPost(
+          _image,
+          _titleController.text,
+          _priceController.text,
+          _stockController.text,
+          _jenisBarangController.text,
+        );
 
-      Navigator.pop(context);
+        if (mounted) Navigator.pop(context); // Tutup loading
 
-      if (success) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Berhasil simpan ke PostgreSQL!")),
-          );
-          Navigator.pop(context, true); 
+        if (success) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Berhasil simpan!")),
+            );
+            Navigator.pop(context, true); 
+          }
+        } else {
+          throw Exception("Gagal simpan");
         }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Gagal menyimpan. Periksa koneksi/log Laravel.")),
-          );
-        }
+      } catch (e) {
+        if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Terjadi kesalahan koneksi/server")),
+        );
       }
     }
-  }
-
-  // HELPER FOOTER ICON (Konsisten dengan class lain)
-  Widget _buildFooterIcon({required IconData icon, required Color color, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.black, width: 1.5),
-        ),
-        child: Icon(icon, color: Colors.black, size: 28),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-   appBar: PreferredSize(
+      appBar: PreferredSize(
         preferredSize: const Size.fromHeight(100),
         child: Container(
           decoration: const BoxDecoration(
@@ -135,19 +129,19 @@ class _TambahdatabarangState extends State<Tambahdatabarang> {
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), // Padding bawah agar tidak tertutup footer
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
           child: Column(
             children: [
               Center(
                 child: GestureDetector(
                   onTap: getImage,
                   child: Container(
-                    height: 200,
-                    width: 200,
+                    height: 180,
+                    width: 180,
                     decoration: BoxDecoration(
                       color: Colors.grey[200],
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: _image == null
                         ? const Icon(Icons.camera_alt, size: 50, color: Colors.grey)
@@ -160,53 +154,14 @@ class _TambahdatabarangState extends State<Tambahdatabarang> {
               ),
               const SizedBox(height: 20),
 
-              TextFormField(
-                controller: _titleController,
-                focusNode: _titleFocus,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Nama Barang',
-                  prefixIcon: Icon(Icons.shopping_bag),
-                ),
-                validator: (val) => val!.isEmpty ? 'Masukkan nama barang' : null,
-              ),
+              _buildTextField(_titleController, _titleFocus, 'Nama Barang', Icons.shopping_bag),
               const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _voucherController,
-                focusNode: _voucherFocus,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Nama Voucher',
-                  prefixIcon: Icon(Icons.confirmation_number),
-                ),
-              ),
+              _buildTextField(_jenisBarangController, _jenisFocus, 'Jenis Barang', Icons.category),
               const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _priceController,
-                focusNode: _priceFocus,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Harga Barang',
-                  prefixIcon: Icon(Icons.attach_money),
-                ),
-                validator: (val) => val!.isEmpty ? 'Masukkan harga' : null,
-              ),
+              _buildTextField(_priceController, _priceFocus, 'Harga Barang', Icons.attach_money, isNumber: true),
               const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _stockController,
-                focusNode: _stockFocus,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Stok Barang',
-                  prefixIcon: Icon(Icons.inventory),
-                ),
-                validator: (val) => val!.isEmpty ? 'Masukkan stok' : null,
-              ),
+              _buildTextField(_stockController, _stockFocus, 'Stok Barang', Icons.inventory, isNumber: true),
+              
               const SizedBox(height: 30),
 
               SizedBox(
@@ -222,43 +177,53 @@ class _TambahdatabarangState extends State<Tambahdatabarang> {
           ),
         ),
       ),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
 
-      // FOOTER NAVIGASI (Identik dengan Laporan & Edit)
-      bottomNavigationBar: Container(
-        height: 80,
-        decoration: const BoxDecoration(
-          color: Color(0xFF00E5BC), // Warna Toska khas
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(25),
-            topRight: Radius.circular(25),
-          ),
+  // Refactor TextField untuk meringankan build tree
+  Widget _buildTextField(TextEditingController controller, FocusNode focus, String label, IconData icon, {bool isNumber = false}) {
+    return TextFormField(
+      controller: controller,
+      focusNode: focus,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        border: const OutlineInputBorder(),
+        labelText: label,
+        prefixIcon: Icon(icon),
+      ),
+      validator: (val) => val!.isEmpty ? 'Wajib diisi' : null,
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return Container(
+      height: 80,
+      decoration: const BoxDecoration(
+        color: Color(0xFF00E5BC),
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _navIcon(Icons.assignment, Colors.yellow[600]!, () => Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan()))),
+          _navIcon(Icons.home_outlined, const Color(0xFF1A437E), () => Navigator.push(context, MaterialPageRoute(builder: (context) => Landingpage()))),
+          _navIcon(Icons.payments_outlined, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (context) => Laporankeuangan()))),
+        ],
+      ),
+    );
+  }
+
+  Widget _navIcon(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50, height: 50,
+        decoration: BoxDecoration(
+          color: color, shape: BoxShape.circle,
+          border: Border.all(color: Colors.black, width: 1.5),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildFooterIcon(
-              icon: Icons.assignment,
-              color: Colors.yellow[600]!,
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan()));
-              },
-            ),
-            _buildFooterIcon(
-              icon: Icons.home_outlined,
-              color: const Color(0xFF1A437E),
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => Landingpage()));
-              },
-            ),
-            _buildFooterIcon(
-              icon: Icons.payments_outlined,
-              color: Colors.red,
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => Laporankeuangan()));
-              },
-            ),
-          ],
-        ),
+        child: Icon(icon, color: Colors.black, size: 28),
       ),
     );
   }

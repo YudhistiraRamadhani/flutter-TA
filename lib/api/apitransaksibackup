@@ -1,0 +1,276 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+
+class PostTransaksi {
+final int? id;
+  final String Nama_Barang;
+  final String Harga;
+  final String Jumlah;
+  final DateTime? Tanggal;
+  final String jenis_barang;
+  final String jenis_transaksi;
+  final String nama_supplier;
+  final String deskripsi;
+ 
+  final int pendapatan;
+  final int pengeluaran;
+
+  PostTransaksi({
+ this.id,
+    required this.Nama_Barang,
+    required this.Harga,
+    required this.Jumlah,
+    this.Tanggal,
+    required this.jenis_barang,
+    required this.jenis_transaksi,
+    required this.nama_supplier,
+    this.deskripsi = "-",
+    this.pendapatan = 0,
+    this.pengeluaran = 0,
+  });
+
+  factory PostTransaksi.fromJson(Map<String, dynamic> json) {
+    return PostTransaksi(
+    id: json['id'],
+      Nama_Barang: (json['Nama_Barang'] ?? json['nama_barang'] ?? '').toString(),
+      Harga: json['Harga']?.toString() ?? json['harga']?.toString() ?? '0',
+      Jumlah: json['Jumlah']?.toString() ?? json['jumlah']?.toString() ?? '0',
+      Tanggal: json['Tanggal'] != null 
+          ? DateTime.tryParse(json['Tanggal']) 
+          : (json['tanggal'] != null ? DateTime.tryParse(json['tanggal']) : null),
+      jenis_barang: (json['jenis_barang'] ?? '').toString(),
+      jenis_transaksi: (json['jenis_transaksi'] ?? '').toString(),
+      nama_supplier: (json['nama_supplier'] ?? json['supplier'] ?? '-').toString(),
+      deskripsi: (json['deskripsi'] ?? '-').toString(),
+      // Konversi pendapatan & pengeluaran dari API ke int secara aman
+      pendapatan: _toInt(json['pendapatan']),
+      pengeluaran: _toInt(json['pengeluaran']),
+    );
+
+  }
+static int _toInt(dynamic val) {
+    if (val == null) return 0;
+    if (val is int) return val;
+    return int.tryParse(val.toString()) ?? 0;
+  }
+  Map<String, dynamic> toJson() {
+    return {
+    "Nama_Barang": Nama_Barang,
+      "Harga": Harga,
+      "Jumlah": Jumlah,
+      "Tanggal": Tanggal?.toIso8601String(),
+      "jenis_barang": jenis_barang,
+      "jenis_transaksi": jenis_transaksi,
+      "nama_supplier": nama_supplier,
+      "deskripsi": deskripsi,
+    };
+  }
+}
+
+
+class Apitransaksi {
+  final String baseUrl = "http://192.168.1.9:8000/api";
+
+  // 1. Ambil Data Semua Transaksi (Untuk filter laporan)
+  Future<List<PostTransaksi>> fetchTransaksi() async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/transaksi"));
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        List listData = jsonData is Map ? jsonData['data'] : jsonData;
+        return listData.map((e) => PostTransaksi.fromJson(e)).toList();
+      } else {
+        throw Exception("Gagal load transaksi: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error Fetch: $e");
+      throw Exception("Koneksi Error: $e");
+    }
+  }
+
+ 
+ Future<bool> insertTransaksi(
+    String nama, String harga, String jumlah, String tanggal,
+    String jenisBarang, String jenisTransaksi, String supplier, String deskripsi,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/transaksi"),
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode({
+        "Nama_Barang": nama,      // Huruf Kapital agar lurus dengan database
+          "Harga": harga,
+          "Jumlah": jumlah,
+          "Tanggal": tanggal,
+          "jenis_barang": jenisBarang,
+          "jenis_transaksi": jenisTransaksi, 
+          "nama_supplier": supplier,
+          "deskripsi": deskripsi,
+        }),
+      );
+
+      print("STATUS UTAMA: ${response.statusCode}");
+      print("BODY UTAMA: ${response.body}");
+
+      // UBAH BAGIAN INI: Agar menerima kode 200 maupun 201
+      return response.statusCode >= 200 && response.statusCode < 300;
+
+    } catch (e) {
+      print("Error: $e");
+      return false;
+    }
+  }
+
+Future<bool> insertTransaksiVoucher(
+    String nama, String supplier, String tanggal, String jumlah, 
+    String harga, String deskripsi, String jenis
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/transaksi-voucher"),
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode({
+          "Nama_Barang": nama,
+          "nama_supplier": supplier,
+          "Tanggal": tanggal,
+          "Jumlah": jumlah,
+          "Harga": harga,
+          "jenis_barang": jenis, // Akan berisi hasil pilihan dropdown (Voucher/Kartu Provider)
+          "jenis_transaksi": "Pengeluaran", // Hardcode karena ini pengeluaran voucher
+          "deskripsi": deskripsi
+        }),
+      );
+      
+    return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      print("VOUCHER ERROR: $e");
+      return false;
+    }
+  }
+
+  Future<List<PostTransaksi>> fetchLaporanKeuangan() async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/laporankeuangan"));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        List listData = data is Map ? (data['data'] ?? []) : data;
+        return listData.map((e) => PostTransaksi.fromJson(e)).toList();
+      } else {
+        return fetchTransaksi();
+      }
+    } catch (e) {
+      return fetchTransaksi();
+    }
+  }
+
+
+  Future<List<String>> fetchVoucherList() async {
+    try {
+      // Tambahkan timeout 5 detik agar tidak loading selamanya
+      final response = await http.get(Uri.parse("$baseUrl/produks-list"))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        List data = jsonDecode(response.body);
+        List filtered = data.where((item) {
+          final jenis = item['jenis_barang']?.toString().toLowerCase();
+          return jenis == 'voucher' || jenis == 'kartu provider';
+        }).toList();
+
+        return filtered
+            .map<String>((item) => item['Nama_Barang'].toString())
+            .toList();
+      } else {
+        print("Gagal ambil voucher: ${response.statusCode}");
+        return [];
+      }
+    } catch (e) {
+      print("Error Fetch Voucher List: $e");
+      return []; // Return list kosong agar UI berhenti loading
+    }
+
+
+  }
+
+  // 1. Logika Update Data (Edit)
+  Future<bool> updateTransaksi(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await http.put(
+        Uri.parse("$baseUrl/transaksi/$id"), // Pastikan endpoint API kamu benar
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode(data),
+      );
+
+      print("Status Update: ${response.statusCode}");
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      print("Error Update: $e");
+      return false;
+    }
+  }
+
+  // 2. Logika Hapus Data
+  Future<bool> deleteTransaksi(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/transaksi/$id"), // Pastikan endpoint API kamu benar
+        headers: {
+          "Accept": "application/json",
+        },
+      );
+
+      print("Status Delete: ${response.statusCode}");
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      print("Error Delete: $e");
+      return false;
+    }
+  }
+  // 1. Logika Update Data Laporan Keuangan
+  Future<bool> updateLaporanKeuangan(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await http.put(
+        Uri.parse("$baseUrl/laporankeuangan/$id"), // Pastikan lurus dengan api.php
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode(data),
+      );
+
+      print("Status Update: ${response.statusCode}");
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      print("Error Update: $e");
+      return false;
+    }
+  }
+
+  // 2. Logika Hapus Data Laporan Keuangan
+  Future<bool> deleteLaporanKeuangan(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/laporankeuangan/$id"), // Pastikan lurus dengan api.php
+        headers: {
+          "Accept": "application/json",
+        },
+      );
+
+      print("Status Delete: ${response.statusCode}");
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      print("Error Delete: $e");
+      return false;
+    }
+  }
+}

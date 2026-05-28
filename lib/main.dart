@@ -1,84 +1,65 @@
 import 'package:flutter/material.dart';
-  //import 'package:flutter_application_1/screen/Laporankeuangan.dart';
- //import 'package:flutter_application_1/screen/Tambahdatapelanggan.dart';
-//import 'package:flutter_application_1/screen/Transaksi.dart';
-//import 'package:flutter_application_1/screen/Datapiutang.dart';
- //import 'package:flutter_application_1/screen/Dataproduk.dart';
-//import 'package:flutter_application_1/screen/Landingpage.dart';
-  //import 'package:flutter_application_1/screen/Transaksi.dart';
- //import 'package:flutter_application_1/screen/Tambahdatabarang.dart';
- //import 'package:flutter_application_1/screen/Laporantransaksi.dart';
-//import 'package:flutter_application_1/screen/Datapelanggan.dart';
-import 'package:flutter_application_1/screen/Landingpage.dart';
- //import 'package:flutter_application_1/screen/Detailproduk.dart';
-//import 'package:flutter_application_1/screen/EditDataproduk.dart';
-//import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
-//import 'package:flutter_application_1/screen/formpiutang.dart';
+// import 'package:timezone/data/latest.dart' as tz_data;
+// import 'package:timezone/timezone.dart' as tz;
+// import 'package:permission_handler/permission_handler.dart';
+// import 'package:flutter_application_1/service/Notivicationservice.dart';
+//import 'screen/Landingpage.dart';
+//import 'screen/Landingpagenew.dart';
+//import 'screen/Formpenagihan.dart';
+//import 'screen/TransaksiBarang.dart';
+import 'package:flutter_application_1/screen/Dasboard.dart';
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:intl/date_symbol_data_local.dart';
-void main () async {
-  WidgetsFlutterBinding.ensureInitialized();
 
-  await initializeDateFormatting('id', null);
-  runApp(const MyApp());
+void main() async {
+// WidgetsFlutterBinding.ensureInitialized();
+WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
+
+// tz_data.initializeTimeZones();
+// tz.setLocalLocation(tz.getLocation('Asia/Jakarta'));
+
+// await _requestPermissions();
+
+// await NotificationService.init();
+
+
+// openAlarmSetting();
+
+// await NotificationService.testNotif();
+
+
+// await NotificationService.loadNotifikasiDariLaravel();
+
+runApp(const MyApp());
+}
+
+
+// Future<void> _requestPermissions() async {
+// if (await Permission.notification.isDenied) {
+//  await Permission.notification.request();
+// }
+
+// if (await Permission.scheduleExactAlarm.isDenied) {
+// await Permission.scheduleExactAlarm.request();
+//  }
+// }
+
+
+void openAlarmSetting() {
+final intent = AndroidIntent(
+ action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+);
+intent.launch();
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      
-      ),
- home:   Landingpage(),
-     
-    
-   
-    );
-    
-  }   
+const MyApp({super.key});
+ @override
+Widget build(BuildContext context) {
+ return MaterialApp(
+ debugShowCheckedModeBanner: false,
+home:  Dasboard(),
+);
+ }
 }
-
-// class MyHomePage extends StatefulWidget {
-//   const MyHomePage({super.key, required this.title});
-
-//   final String title;
-
-//   @override
-//   State<MyHomePage> createState() => _MyHomePageState();
-// }
-
-// class _MyHomePageState extends State<MyHomePage> {
- 
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-//         title: Text(widget.title),
-//       ),
-//       body: Center(
-      
-// child: ElevatedButton(
-//   onPressed:() {
-//     Navigator.push(
-//       context,
-//       MaterialPageRoute(builder: (context) => Laporankeuangan()),
-    
-//     );
-//   },
-//     child: Text('Laporan Keuangan'),
-// ),
-     
-//       ),
-      
-//     );
-//   }
-// }
-

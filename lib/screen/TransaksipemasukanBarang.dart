@@ -1,0 +1,340 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_application_1/api/apitransaksi.dart';
+import 'package:flutter_application_1/api/repository.dart';
+import 'package:flutter_application_1/model/postproduk.dart';
+import 'package:flutter_application_1/screen/Landingpage.dart';
+import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
+import 'package:flutter_application_1/screen/Laporankeuangan.dart';
+
+class TransaksipemasukanBarang extends StatefulWidget {
+  const TransaksipemasukanBarang({super.key});
+
+  @override
+  State<TransaksipemasukanBarang> createState() => _TransaksipemasukanBarangState();
+}
+
+class _TransaksipemasukanBarangState extends State<TransaksipemasukanBarang> {
+  final _formKey = GlobalKey<FormState>();
+  final Apitransaksi _apiService = Apitransaksi();
+  final Repository _produkRepo = Repository();
+  
+  bool _isLoading = false;
+  List<Postproduk> _listProduk = [];
+  String _selectedJenisBarang = "Barang";
+
+  final TextEditingController _namaController = TextEditingController();
+  final TextEditingController _hargaController = TextEditingController();
+  final TextEditingController _jumlahController = TextEditingController();
+  final TextEditingController _tglController = TextEditingController();
+  final TextEditingController _totalController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProdukData();
+    _tglController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    _jumlahController.addListener(_hitungTotal);
+    _hargaController.addListener(_hitungTotal);
+  }
+
+  Future<void> _loadProdukData() async {
+    try {
+      final response = await _produkRepo.fetchPosts(1);
+      setState(() {
+        var data = response['posts'];
+        if (data is List) {
+          if (data.isNotEmpty && data.first is Postproduk) {
+            _listProduk = data.cast<Postproduk>();
+          } else {
+            _listProduk = data.map((e) => Postproduk.fromJson(e)).toList();
+          }
+        }
+      });
+    } catch (e) {
+      debugPrint("❌ Gagal memuat produk: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    _jumlahController.removeListener(_hitungTotal);
+    _hargaController.removeListener(_hitungTotal);
+    _namaController.dispose();
+    _hargaController.dispose();
+    _jumlahController.dispose();
+    _tglController.dispose();
+    _totalController.dispose();
+    super.dispose();
+  }
+
+  void _hitungTotal() {
+    int harga = int.tryParse(_hargaController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    int jumlah = int.tryParse(_jumlahController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    setState(() {
+      _totalController.text = (harga * jumlah).toString();
+    });
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
+  }
+
+  Future<void> _simpan() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+
+      try {
+        String hargaBersih = _hargaController.text.replaceAll(RegExp(r'[^0-9]'), '');
+        String jumlahBersih = _jumlahController.text.replaceAll(RegExp(r'[^0-9]'), '');
+        String namaBarang = _namaController.text.trim();
+        int jumlahInt = int.tryParse(jumlahBersih) ?? 0;
+        int hargaInt = int.tryParse(hargaBersih) ?? 0;
+
+        // CEK STOK
+        var cekStok = await _apiService.cekStokProduk(namaBarang);
+        
+        if (!cekStok['found']) {
+          _showSnackBar("❌ Produk tidak ditemukan!", Colors.red);
+          setState(() => _isLoading = false);
+          return;
+        }
+        
+        int stokTersedia = cekStok['stok'];
+        if (stokTersedia < jumlahInt) {
+          _showSnackBar("❌ Stok tidak cukup! Sisa: $stokTersedia", Colors.red);
+          setState(() => _isLoading = false);
+          return;
+        }
+
+        // LANGSUNG KIRIM TANPA KONFIRMASI
+        bool success = await _apiService.insertTransaksi(
+          namaBarang,
+          hargaBersih,
+          jumlahBersih,
+          _tglController.text,
+          _selectedJenisBarang,
+          "Pemasukan",
+          "-",
+          "Penjualan barang",
+        );
+
+        if (!mounted) return;
+
+        if (success) {
+          _showSnackBar(
+            "✅ Penjualan berhasil!\nStok berkurang $jumlahInt", 
+            Colors.green
+          );
+          _clearForm();
+          _loadProdukData();
+        } else {
+          _showSnackBar("❌ Gagal menyimpan transaksi", Colors.red);
+        }
+      } catch (e) {
+        _showSnackBar("Terjadi kesalahan: $e", Colors.red);
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _clearForm() {
+    _namaController.clear();
+    _hargaController.clear();
+    _jumlahController.clear();
+    _totalController.clear();
+    _tglController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  }
+
+  Widget _buildFooterIcon({required IconData icon, required Color color, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50, height: 50,
+        decoration: BoxDecoration(
+          color: color, shape: BoxShape.circle,
+          border: Border.all(color: Colors.black, width: 1.5),
+        ),
+        child: Icon(icon, color: Colors.white, size: 28),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF5D48ED),
+            borderRadius: BorderRadius.only(bottomRight: Radius.circular(70)),
+          ),
+          child: const SafeArea(
+            child: Center(
+              child: Text("TRANSAKSI PENJUALAN BARANG",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+          ),
+        ),
+      ),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              
+              // AUTOCOMPLETE NAMA BARANG
+              Autocomplete<Postproduk>(
+                displayStringForOption: (Postproduk option) => option.Nama_Barang ?? '',
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  if (textEditingValue.text.isEmpty) return const Iterable<Postproduk>.empty();
+                  return _listProduk.where((p) => p.Nama_Barang!.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                },
+                onSelected: (Postproduk selection) {
+                  setState(() {
+                    _namaController.text = selection.Nama_Barang ?? '';
+                    _hargaController.text = selection.Harga.toString();
+                    _selectedJenisBarang = selection.jenis_barang ?? "Barang";
+                  });
+                  _hitungTotal();
+                },
+                fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
+                  if (textController.text.isEmpty && _namaController.text.isNotEmpty) {
+                    textController.text = _namaController.text;
+                  }
+                  return TextFormField(
+                    controller: textController,
+                    focusNode: focusNode,
+                    onChanged: (value) => _namaController.text = value,
+                    decoration: const InputDecoration(
+                      labelText: "Nama Barang *",
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.shopping_bag_outlined),
+                    ),
+                    validator: (v) => v!.isEmpty ? "Nama barang wajib diisi" : null,
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              TextFormField(
+                controller: _hargaController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Harga Jual *",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.payments_outlined),
+                  prefixText: "Rp ",
+                ),
+                validator: (v) => v!.isEmpty ? "Harga wajib diisi" : null,
+              ),
+              const SizedBox(height: 16),
+              
+              TextFormField(
+                controller: _jumlahController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Jumlah Terjual *",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.format_list_numbered),
+                  helperText: "Stok akan berkurang sesuai jumlah ini",
+                ),
+                validator: (v) {
+                  if (v!.isEmpty) return "Jumlah wajib diisi";
+                  if ((int.tryParse(v) ?? 0) <= 0) return "Jumlah minimal 1";
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              TextFormField(
+                controller: _totalController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: "Total Pendapatan",
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.calculate_outlined),
+                  prefixText: "Rp ",
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              TextFormField(
+                controller: _tglController,
+                readOnly: true,
+                onTap: () async {
+                  DateTime? picked = await showDatePicker(
+                    context: context, 
+                    initialDate: DateTime.now(), 
+                    firstDate: DateTime(2000), 
+                    lastDate: DateTime(2101)
+                  );
+                  if (picked != null) {
+                    setState(() => _tglController.text = DateFormat('yyyy-MM-dd').format(picked));
+                  }
+                },
+                decoration: const InputDecoration(
+                  labelText: "Tanggal Transaksi", 
+                  border: OutlineInputBorder(), 
+                  prefixIcon: Icon(Icons.calendar_today_outlined)
+                ),
+              ),
+              const SizedBox(height: 30),
+              
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: FilledButton(
+                  onPressed: _isLoading ? null : _simpan,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF5D48ED),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('SIMPAN PENJUALAN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        height: 80,
+        decoration: const BoxDecoration(
+          color: Color(0xFF00E5BC),
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildFooterIcon(
+              icon: Icons.assignment, 
+              color: const Color(0xFFFDB515), 
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan()))
+            ),
+            _buildFooterIcon(
+              icon: Icons.home_outlined, 
+              color: const Color(0xFF1A437E), 
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Landingpage()))
+            ),
+            _buildFooterIcon(
+              icon: Icons.payments_outlined, 
+              color: const Color(0xFFE51C23), 
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Laporankeuangan()))
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

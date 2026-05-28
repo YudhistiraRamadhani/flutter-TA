@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/repository.dart';
 import 'package:flutter_application_1/model/postproduk.dart';
 import 'package:flutter_application_1/screen/EditDataproduk.dart';
-// Import halaman untuk navigasi footer
 import 'package:flutter_application_1/screen/Landingpage.dart';
 import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
 import 'package:flutter_application_1/screen/Laporankeuangan.dart';
@@ -77,15 +76,13 @@ class _DetailprodukState extends State<Detailproduk> {
           : produk == null
               ? const Center(child: Text("Data tidak ditemukan"))
               : SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(25, 30, 25, 120), // Tambah padding bawah agar tidak tertutup footer
+                  padding: const EdgeInsets.fromLTRB(25, 30, 25, 120),
                   child: _buildProductCard(produk!),
                 ),
-      
-      // FOOTER DISESUAIKAN DENGAN CLASS TRANSAKSI
       bottomNavigationBar: Container(
         height: 80,
         decoration: const BoxDecoration(
-          color: Color(0xFF00E5BC), // Warna Toska
+          color: Color(0xFF00E5BC),
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(25),
             topRight: Radius.circular(25),
@@ -94,29 +91,20 @@ class _DetailprodukState extends State<Detailproduk> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // Ikon Laporan Penjualan (Kuning)
             _buildFooterIcon(
               icon: Icons.assignment,
               color: Colors.yellow[600]!,
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan()));
-              },
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan())),
             ),
-            // Ikon Home (Biru Tua)
             _buildFooterIcon(
               icon: Icons.home_outlined,
               color: const Color(0xFF1A437E),
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => Landingpage()));
-              },
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Landingpage())),
             ),
-            // Ikon Laporan Keuangan (Merah)
             _buildFooterIcon(
               icon: Icons.payments_outlined,
               color: Colors.red,
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => Laporankeuangan()));
-              },
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Laporankeuangan())),
             ),
           ],
         ),
@@ -143,25 +131,25 @@ class _DetailprodukState extends State<Detailproduk> {
           Center(
             child: post.image != null
                 ? Image.network(
-          // GANTI 10.0.2.2 menjadi 192.168.1.3
-          "http://192.168.1.177:8000/storage/${post.image}?v=${DateTime.now().millisecondsSinceEpoch}",
-          height: 120,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-        
-            print("Link Error Detail: http://192.168.1.177:8000/storage/${post.image}");
-            return const Icon(Icons.broken_image, size: 80);
-          },
-        )
-      : const Icon(Icons.image_not_supported, size: 80),
-),
+                    "http://172.20.10.2:8000/storage/${post.image}?v=${DateTime.now().millisecondsSinceEpoch}",
+                    height: 120,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(Icons.broken_image, size: 80);
+                    },
+                  )
+                : const Icon(Icons.image_not_supported, size: 80),
+          ),
           const SizedBox(height: 30),
-          _buildInfoRow("Nama Voucher", post.Nama_Barang ?? "-"),
+          
+          _buildInfoRow("Jenis Barang", post.jenis_barang ?? "-"),
+          const SizedBox(height: 12),
+          _buildInfoRow("Nama Produk", post.Nama_Barang ?? "-"),
           const SizedBox(height: 12),
           _buildInfoRow("Harga", "Rp ${post.Harga}"),
           const SizedBox(height: 12),
           _buildInfoRow("Stok", post.Stok.toString()),
-          _buildInfoRow("Voucher", post.voucher ?? "-"),
+          
           const SizedBox(height: 40),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -181,13 +169,13 @@ class _DetailprodukState extends State<Detailproduk> {
               const SizedBox(width: 50),
               GestureDetector(
                 onTap: () async {
-                  final result = await Navigator.push(
+                  bool? updated = await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => EditDataproduk(postproduk: post))
+                    MaterialPageRoute(
+                      builder: (context) => EditDataproduk(postproduk: post),
+                    ),
                   );
-                  if (result == true) {
-                    PaintingBinding.instance.imageCache.clear();
-                    PaintingBinding.instance.imageCache.clearLiveImages();
+                  if (updated == true) {
                     _loadDetailData();
                   }
                 },
@@ -228,7 +216,6 @@ class _DetailprodukState extends State<Detailproduk> {
     );
   }
 
-  // HELPER FOOTER: Disesuaikan dengan class Transaksi (Lingkaran + Border)
   Widget _buildFooterIcon({required IconData icon, required Color color, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,

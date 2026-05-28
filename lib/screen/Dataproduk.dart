@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/repository.dart';
 import 'package:flutter_application_1/model/postproduk.dart';
 import 'package:flutter_application_1/screen/Detailproduk.dart';
-import 'package:flutter_application_1/screen/EditDataproduk.dart';
-// Import untuk Navigasi Footer
+
+import 'package:flutter_application_1/screen/TambahDataproduk.dart'; 
 import 'package:flutter_application_1/screen/Landingpage.dart';
 import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
 import 'package:flutter_application_1/screen/Laporankeuangan.dart';
 
+// Ganti nama class ini menjadi Dataproduk agar tidak sama dengan nama file yang diimport
 class Dataproduk extends StatefulWidget {
   @override
   State<Dataproduk> createState() => _DataprodukState();
@@ -37,7 +38,6 @@ class _DataprodukState extends State<Dataproduk> {
     }
   }
 
-  
   Widget _buildFooterIcon({required IconData icon, required Color color, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -83,9 +83,10 @@ class _DataprodukState extends State<Dataproduk> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 onPressed: () async {
+                  // Sekarang diarahkan ke class TambahDataproduk yang ada di import
                   bool? refresh = await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => EditDataproduk()),
+                    MaterialPageRoute(builder: (context) => TambahDataproduk()),
                   );
                   if (refresh == true) loadData();
                 },
@@ -98,7 +99,6 @@ class _DataprodukState extends State<Dataproduk> {
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : GridView.builder(
-                    // Padding bawah 100 agar item terakhir tidak tertutup footer melayang
                     padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 100),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
@@ -116,11 +116,10 @@ class _DataprodukState extends State<Dataproduk> {
         ],
       ),
 
-      // FOOTER SESUAI DESAIN TRANSAKSI & DATA PELANGGAN
       bottomNavigationBar: Container(
         height: 80,
         decoration: const BoxDecoration(
-          color: Color(0xFF00E5BC), // Warna Toska
+          color: Color(0xFF00E5BC), 
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(25),
             topRight: Radius.circular(25),
@@ -169,13 +168,11 @@ class _DataprodukState extends State<Dataproduk> {
             child: Padding(
               padding: const EdgeInsets.all(10.0),
               child: Image.network(
-
-  "http://192.168.1.177:8000/storage/${produk.image}", 
-  errorBuilder: (context, error, stackTrace) {
-    print("Link Error: http://192.168.1.177:8000/storage/${produk.image}"); // Debug link di console
-    return const Icon(Icons.broken_image, size: 50, color: Colors.white);
-  },
-),
+                "http://172.20.10.2:8000/storage/${produk.image}", 
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(Icons.broken_image, size: 50, color: Colors.white);
+                },
+              ),
             ),
           ),
           
@@ -189,7 +186,7 @@ class _DataprodukState extends State<Dataproduk> {
                     builder: (context) => Detailproduk(id: produk.id), 
                   ),
                 );
-                if (refresh == true) loadData(); // Refresh jika ada data dihapus di halaman detail
+                if (refresh == true) loadData(); 
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),

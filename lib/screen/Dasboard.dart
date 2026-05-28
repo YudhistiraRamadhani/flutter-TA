@@ -1,0 +1,471 @@
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
+import 'package:flutter_application_1/screen/Datapelanggan.dart';
+import 'package:flutter_application_1/screen/Dataproduk.dart';
+import 'package:flutter_application_1/screen/Laporankeuangan.dart';
+import 'package:flutter_application_1/screen/Datapiutang.dart' as piutang;
+import 'package:flutter_application_1/screen/Transaksipengeluaran.dart';
+import 'package:flutter_application_1/screen/jenistransaksipengeluaran.dart';
+import 'package:flutter_application_1/screen/jenistransaksipemasukan.dart';
+import 'package:flutter_application_1/screen/Jenisnotifikasi.dart';
+import 'package:flutter_application_1/screen/TransaksiPemasukan.dart';
+
+class Dasboard extends StatefulWidget {
+  const Dasboard({super.key});
+
+  @override
+  State<Dasboard> createState() => _DasboardState();
+}
+
+class _DasboardState extends State<Dasboard> {
+  final PageController _pageController = PageController();
+  int _currentDashboardPage = 0;
+  
+  // State data utama
+  Map<String, dynamic> _dashboardData = {
+    'total_pemasukan': 0,
+    'total_pengeluaran': 0,
+    'laba_bersih': 0,
+    'stok_kritikal': 0,
+    'total_piutang': 0,
+    'piutang_belum_lunas': 0,
+    'total_produk': 0,
+  };
+
+  bool _isBackgroundLoading = false;
+  final String _baseUrl = "http://172.20.10.2:8000/api";
+
+  @override
+  void initState() {
+    super.initState();
+    _testConnection();
+    fetchDashboardData(); 
+  }
+
+  Future<void> _testConnection() async {
+    try {
+      print('🔵 Testing connection to: $_baseUrl');
+      final response = await http.get(Uri.parse(_baseUrl)).timeout(
+        const Duration(seconds: 10),
+      );
+      print('🟢 Test connection response status: ${response.statusCode}');
+    } catch (e) {
+      print('🔴 Test connection failed: $e');
+    }
+  }
+
+  Future<void> fetchDashboardData() async {
+    try {
+      setState(() {
+        _isBackgroundLoading = true;
+      });
+
+      final String fullUrl = "$_baseUrl/dashboard";
+      
+      final response = await http.get(
+        Uri.parse(fullUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception("Timeout - Server tidak merespon dalam 30 detik");
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        
+        setState(() {
+          _dashboardData = {
+            'total_pemasukan': _toInt(jsonData['total_pemasukan']),
+            'total_pengeluaran': _toInt(jsonData['total_pengeluaran']),
+            'laba_bersih': _toInt(jsonData['total_omzet']), 
+            'stok_kritikal': _toInt(jsonData['stok_kritikal']),
+            'total_piutang': _toInt(jsonData['total_piutang']), 
+            'piutang_belum_lunas': _toInt(jsonData['piutang_belum_lunas_count'] ?? 0), 
+            'total_produk': _toInt(jsonData['total_produk']),
+          };
+          _isBackgroundLoading = false;
+        });
+      } else {
+        throw Exception("HTTP ${response.statusCode}");
+      }
+    } catch (e) {
+      setState(() {
+        _isBackgroundLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("Gagal sinkronisasi data: Koneksi server terputus"),
+          backgroundColor: Colors.red.withOpacity(0.8),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
+  }
+
+  String formatRupiah(dynamic number) {
+    int value = _toInt(number);
+    if (value == 0) return "Rp 0";
+    
+    String formatted = value.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.'
+    );
+    return "Rp $formatted";
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final int totalPemasukan = _toInt(_dashboardData['total_pemasukan']);
+    final int totalPengeluaran = _toInt(_dashboardData['total_pengeluaran']);
+    final int piutangBelumLunas = _toInt(_dashboardData['piutang_belum_lunas']);
+    final int totalProduk = _toInt(_dashboardData['total_produk']);
+    
+    final String totalPemasukanText = formatRupiah(totalPemasukan);
+    final String totalPengeluaranText = formatRupiah(totalPengeluaran);
+    final String totalProdukText = "$totalProduk Produk"; 
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9F5),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await fetchDashboardData();
+          },
+          child: CustomScrollView(
+            slivers: [
+              // Header Ungu
+              SliverToBoxAdapter(
+                child: Container(
+                  width: double.infinity,
+                  height: 180,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF4D4DFF),
+                    borderRadius: BorderRadius.only(bottomRight: Radius.circular(80)),
+                  ),
+                  padding: const EdgeInsets.only(left: 30, top: 50),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'HALO PEMILIK JS CELL',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Text(
+                            'Data aman tersimpan di aplikasi ini',
+                            style: TextStyle(color: Colors.white70, fontSize: 14),
+                          ),
+                          const SizedBox(width: 8),
+                          if (_isBackgroundLoading)
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white70),
+                            )
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Header Judul Dashboard
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Dashboard',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, size: 20, color: Colors.black54),
+                        onPressed: () {
+                          fetchDashboardData();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Slider Cards PageView
+              SliverToBoxAdapter(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      height: 135,
+                      child: PageView(
+                        controller: _pageController,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _currentDashboardPage = index;
+                          });
+                        },
+                        children: [
+                          // SLIDE 1: PEMASUKAN & PENGELUARAN
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14), 
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildDashboardCard(
+                                    'Total Pemasukan', 
+                                    totalPemasukanText, 
+                                    'Seluruh Pendapatan Masuk', 
+                                    Colors.green
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildDashboardCard(
+                                    'Total Pengeluaran', 
+                                    totalPengeluaranText, 
+                                    'Seluruh Biaya Keluar', 
+                                    Colors.red
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // SLIDE 2: STOK BARANG & TOTAL PIUTANG (Digabung)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildDashboardCard(
+                                    'Stok Barang', 
+                                    totalProdukText, 
+                                    'Jumlah Seluruh Produk', 
+                                    Colors.orange
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildDashboardCard(
+                                    'Total Piutang', 
+                                    '$piutangBelumLunas Transaksi', 
+                                    'Belum Lunas / Menggantung', 
+                                    Colors.red 
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Navigasi Panah Slider
+                    if (_currentDashboardPage > 0)
+                      Positioned(
+                        left: 6,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.white.withOpacity(0.9),
+                          radius: 16,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.black87),
+                            onPressed: () => _pageController.previousPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (_currentDashboardPage < 1) 
+                      Positioned(
+                        right: 6,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.white.withOpacity(0.9),
+                          radius: 16,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black87),
+                            onPressed: () => _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              // Dot Indicator Slider (2 dot)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(2, (index) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      height: 6,
+                      width: _currentDashboardPage == index ? 12 : 6,
+                      decoration: BoxDecoration(
+                        color: _currentDashboardPage == index ? const Color(0xFF4D4DFF) : Colors.black26,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    )),
+                  ),
+                ),
+              ),
+
+              // Menu Grid Icons Utama
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 20,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 0.85,
+                  ),
+                  delegate: SliverChildListDelegate([
+                    _buildMenuItem(context, Image.asset("images/transaksi.png", width: 60, height: 60), "transaksi pemasukan", const Color(0xFFC5E1A5), TransaksiPemasukan()),
+                    _buildMenuItem(context, Image.asset("images/laporan.png", width: 60, height: 60), "laporan penjualan", const Color(0xFFD4E157), Laporanpenjualan()),
+                    _buildMenuItem(context, Image.asset("images/produk.png", width: 60, height: 60), "data produk", const Color(0xFF42A5F5), Dataproduk()),
+                    _buildMenuItem(context, Image.asset("images/laporankeuangan.png", width: 60, height: 60), "laporan keuangan", const Color(0xFFFF7043), Laporankeuangan()),
+                    
+                    _buildMenuItem(
+                      context, 
+                      Image.asset("images/datahutang.png", width: 60, height: 60), 
+                      "data Hutang", 
+                      const Color(0xFFCE93D8), 
+                      piutang.Datapiutang(),
+                      onCustomTap: () async {
+                        final checkRefresh = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => piutang.Datapiutang()),
+                        );
+                        if (checkRefresh == true) {
+                          fetchDashboardData();
+                        }
+                      }
+                    ),
+                    
+                    _buildMenuItem(context, const Icon(Icons.assignment_ind_outlined, size: 60), "data pelanggan", const Color(0xFFE0E0E0), Datapelanggan()),
+                    _buildMenuItem(context, const Image(image: AssetImage("images/transaksi.png"), width: 60, height: 60), "transaksi pengeluaran", const Color.fromARGB(255, 189, 189, 189), Jenistransaksipengeluaran()),
+                  ]),
+                ),
+              ),
+              
+              const SliverToBoxAdapter(child: SizedBox(height: 30)),
+            ],
+          ),
+        ),
+      ),
+      
+      // Bottom Navigation Bar
+      bottomNavigationBar: Container(
+        height: 70,
+        decoration: const BoxDecoration(
+          color: Color(0xFF00D2B4),
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildFooterIcon(Icons.assignment, Colors.yellow[700]!, () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan()));
+            }),
+            _buildFooterIcon(Icons.home_outlined, const Color(0xFF1A237E), () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const Dasboard())); 
+            }),
+            _buildFooterIcon(Icons.payments_outlined, Colors.red, () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => Laporankeuangan()));
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDashboardCard(String title, String value, String subtitle, Color highlightColor) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
+          const SizedBox(height: 4),
+          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87)),
+          const SizedBox(height: 4),
+          Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: highlightColor)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem(BuildContext context, Widget leading, String label, Color color, Widget targetPage, {VoidCallback? onCustomTap}) {
+    return GestureDetector(
+      onTap: onCustomTap ?? () => Navigator.push(context, MaterialPageRoute(builder: (context) => targetPage)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.black45)),
+            child: leading,
+          ),
+          const SizedBox(height: 6),
+          Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterIcon(IconData icon, Color circleColor, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: circleColor, shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 1.5)),
+        child: Icon(icon, color: Colors.black, size: 26),
+      ),
+    );
+  }
+}

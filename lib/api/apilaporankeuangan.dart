@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_application_1/model/postdatalaporankeuangan.dart';
 class apilaporankeuangan {
-final String baseUrl = 'http://192.168.1.177:8000/api/laporankeuangan'; // G
+final String baseUrl = 'http://172.20.10.2:8000/api/laporankeuangan'; // G
   final String apiToken = "1|fl4Xog5gUWR78vc40UDWAXGppHppCMPPXKpOd8sPeea9f88e";
 
   Future<List<dynamic>> getLaporanKeuangan() async {

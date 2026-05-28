@@ -1,0 +1,444 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/apitransaksi.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_application_1/screen/Landingpage.dart';
+import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
+
+class Laporankeuangan extends StatefulWidget {
+  const Laporankeuangan({super.key});
+
+  @override
+  State<Laporankeuangan> createState() => _LaporankeuanganState();
+}
+
+class _LaporankeuanganState extends State<Laporankeuangan> {
+  final Apitransaksi _api = Apitransaksi();
+
+  List<PostTransaksi> _allData = [];
+  List<PostTransaksi> _filteredData = [];
+
+  int totalPemasukan = 0;
+  int totalPengeluaran = 0;
+  bool _isLoading = true;
+
+  String? _selectedYear;
+  String? _selectedMonth;
+
+  final TextEditingController _searchController = TextEditingController();
+  final List<String> _listMonths = [
+    "Semua", "01", "02", "03", "04", "05", "06",
+    "07", "08", "09", "10", "11", "12"
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  // ================= LOAD DATA =================
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await _api.fetchLaporanKeuangan();
+      setState(() {
+        _allData = data;
+        _filteredData = data;
+        _hitungTotal(data);
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint("ERROR LOAD DATA: $e");
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // ================= FILTER LOGIC =================
+  void _runFilter() {
+    String query = _searchController.text.toLowerCase().trim();
+
+    setState(() {
+      _filteredData = _allData.where((item) {
+        final nama = item.Nama_Barang.toLowerCase();
+        final jenis = item.jenis_barang.toLowerCase();
+        final supplier = item.nama_supplier.toLowerCase();
+
+        final matchesSearch = query.isEmpty ||
+            nama.contains(query) ||
+            jenis.contains(query) ||
+            supplier.contains(query);
+
+        DateTime? tgl = item.Tanggal;
+
+        final matchesYear = _selectedYear == null ||
+            _selectedYear == "Semua" ||
+            tgl?.year.toString() == _selectedYear;
+
+        final matchesMonth = _selectedMonth == null ||
+            _selectedMonth == "Semua" ||
+            tgl?.month.toString().padLeft(2, '0') == _selectedMonth;
+
+        return matchesSearch && matchesYear && matchesMonth;
+      }).toList();
+
+      _hitungTotal(_filteredData);
+    });
+  }
+
+  // ================= HITUNG TOTAL =================
+  void _hitungTotal(List<PostTransaksi> data) {
+    totalPemasukan = 0;
+    totalPengeluaran = 0;
+    for (var item in data) {
+      totalPemasukan += item.pendapatan;
+      totalPengeluaran += item.pengeluaran;
+    }
+  }
+
+  String formatRupiah(int val) {
+    return NumberFormat.currency(
+      locale: 'id',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    ).format(val);
+  }
+
+  // ================= UI MAIN =================
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9F9F9),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF5D48ED),
+            borderRadius: BorderRadius.only(bottomRight: Radius.circular(70)),
+          ),
+          child: const SafeArea(
+            child: Center(
+              child: Text(
+                "LAPORAN KEUANGAN",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16),
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          const SizedBox(height: 20),
+          _buildFilterRow(),
+          const SizedBox(height: 15),
+          _buildSummaryCards(),
+          const SizedBox(height: 10),
+          _buildLabaBersihCard(),
+          const SizedBox(height: 10),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredData.isEmpty
+                    ? const Center(child: Text("Data tidak ditemukan"))
+                    : _buildDataTable(),
+          ),
+        ],
+      ),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  // ================= FILTER WIDGETS =================
+  Widget _buildFilterRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      child: Row(
+        children: [
+          const Text("Tahun",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          const SizedBox(width: 5),
+          InkWell(
+            onTap: () => _selectYear(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  Text(_selectedYear ?? "Pilih",
+                      style: const TextStyle(fontSize: 12)),
+                  const Icon(Icons.arrow_drop_down, size: 18),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildDropdownFilter(
+            value: _selectedMonth,
+            hint: "Bln",
+            items: _listMonths,
+            onChanged: (val) {
+              setState(() {
+                _selectedMonth = val;
+                _runFilter();
+              });
+            },
+          ),
+          const Spacer(),
+          Container(
+            width: 130,
+            height: 35,
+            decoration: BoxDecoration(
+                color: const Color(0xFFD9D9D9),
+                borderRadius: BorderRadius.circular(15)),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (_) => _runFilter(),
+              decoration: const InputDecoration(
+                hintText: "Cari...",
+                hintStyle: TextStyle(fontSize: 12),
+                contentPadding: EdgeInsets.only(bottom: 12, left: 10),
+                border: InputBorder.none,
+                suffixIcon: Icon(Icons.search, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================= SUMMARY CARDS =================
+  Widget _buildSummaryCards() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        children: [
+          _buildCard("Total Pendapatan", totalPemasukan, Colors.green),
+          const SizedBox(width: 10),
+          _buildCard("Total Pengeluaran", totalPengeluaran, Colors.red),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCard(String title, int value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color)),
+        child: Column(
+          children: [
+            Text(title,
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.bold, fontSize: 10)),
+            Text(formatRupiah(value),
+                style: TextStyle(
+                    color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabaBersihCard() {
+    int laba = totalPemasukan - totalPengeluaran;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: laba >= 0 ? const Color(0xFF1A437E) : Colors.red[900],
+          borderRadius: BorderRadius.circular(10)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text("LABA BERSIH",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12)),
+          Text(formatRupiah(laba),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildDataTable() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
+            border: TableBorder.all(color: Colors.grey[300]!),
+            columns: const [
+              DataColumn(label: Text('No', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text('Nama Barang', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text('Supplier', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text('Jenis', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text('Pendapatan', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text('Pengeluaran', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text('Tanggal', style: TextStyle(fontWeight: FontWeight.bold))),
+            ],
+            rows: _filteredData.asMap().entries.map((entry) {
+              int index = entry.key;
+              var item = entry.value;
+
+              return DataRow(cells: [
+                DataCell(Text("${index + 1}")),
+                DataCell(Text(item.Nama_Barang)),
+                DataCell(Text(item.nama_supplier)),
+                DataCell(Text(item.jenis_barang)),
+                // Kolom Pendapatan
+                DataCell(Text(
+                  item.pendapatan > 0 ? formatRupiah(item.pendapatan) : "-",
+                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
+                )),
+                // Kolom Pengeluaran
+                DataCell(Text(
+                  item.pengeluaran > 0 ? formatRupiah(item.pengeluaran) : "-",
+                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                )),
+                DataCell(Text(item.Tanggal != null
+                    ? DateFormat('yyyy-MM-dd').format(item.Tanggal!)
+                    : "-")),
+              ]);
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ================= BOTTOM NAV =================
+  Widget _buildBottomNav() {
+    return Container(
+      height: 80,
+      decoration: const BoxDecoration(
+        color: Color(0xFF00E5BC),
+        borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildFooterIcon(
+            icon: Icons.assignment,
+            color: const Color(0xFFFDB515),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (context) => Laporanpenjualan())),
+          ),
+          _buildFooterIcon(
+            icon: Icons.home_outlined,
+            color: const Color(0xFF1A437E),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (context) => const Landingpage())),
+          ),
+          _buildFooterIcon(
+            icon: Icons.payments_outlined,
+            color: const Color(0xFFE51C23),
+            onTap: () {}, // Current
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================= HELPERS =================
+  Widget _buildDropdownFilter(
+      {String? value,
+      required String hint,
+      required List<String> items,
+      required Function(String?) onChanged}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isDense: true,
+          hint: Text(hint, style: const TextStyle(fontSize: 11)),
+          items: items
+              .map((val) => DropdownMenuItem(
+                  value: val,
+                  child: Text(val, style: const TextStyle(fontSize: 12))))
+              .toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooterIcon(
+      {required IconData icon,
+      required Color color,
+      required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black, width: 1.5),
+        ),
+        child: Icon(icon, color: Colors.white, size: 28),
+      ),
+    );
+  }
+
+  Future<void> _selectYear(BuildContext context) async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Pilih Tahun"),
+          content: SizedBox(
+            width: 300,
+            height: 300,
+            child: YearPicker(
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2030),
+              initialDate: DateTime.now(),
+              selectedDate: DateTime.now(),
+              onChanged: (DateTime dateTime) {
+                setState(() => _selectedYear = dateTime.year.toString());
+                _runFilter();
+                Navigator.pop(context);
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() => _selectedYear = "Semua");
+                _runFilter();
+                Navigator.pop(context);
+              },
+              child: const Text("Tampilkan Semua"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

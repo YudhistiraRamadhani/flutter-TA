@@ -1,292 +1,78 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/apidatapelanggan.dart';
 import 'package:flutter_application_1/screen/Landingpage.dart';
 import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
 import 'package:flutter_application_1/screen/Laporankeuangan.dart';
-import 'package:flutter_application_1/api/apidatapelanggan.dart';
 
 class Tambahdatapelanggan extends StatefulWidget {
+  const Tambahdatapelanggan({super.key});
+
   @override
-  _TambahdatapelangganState createState() => _TambahdatapelangganState();
+  State<Tambahdatapelanggan> createState() => _TambahdatapelangganState();
 }
 
 class _TambahdatapelangganState extends State<Tambahdatapelanggan> {
   final _formKey = GlobalKey<FormState>();
+  final apidatapelanggan apiService = apidatapelanggan();
 
-  final TextEditingController _nama_pelangganController = TextEditingController();
-  final TextEditingController _no_whatsappController = TextEditingController();
-  final TextEditingController _tanggal_notifikasiController = TextEditingController();
-  final TextEditingController _pesannotifikasiController = TextEditingController();
+  // Controller standar untuk input manual
+  final _namaController = TextEditingController();
+  final _waController = TextEditingController();
 
-  final apidatapelanggan api = apidatapelanggan();
+  bool _isSaving = false;
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker( //datepicker untuk memilih tanggal
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF5E5CE6),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() {
-        _tanggal_notifikasiController.text =
-            "${picked.year}-${picked.month}-${picked.day}";
-      });
-    }
+  @override
+  void dispose() {
+    _namaController.dispose();
+    _waController.dispose();
+    super.dispose();
   }
 
-  Future<void> simpanData() async {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      bool success = await api.insertdatapelanggan(
-        _nama_pelangganController.text,
-        _no_whatsappController.text,
-        _tanggal_notifikasiController.text,
-        _pesannotifikasiController.text,
-      );
+      setState(() => _isSaving = true);
+      
+      String finalNama = _namaController.text.trim();
+      String finalWa = _waController.text.trim();
 
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Data berhasil disimpan")),
+      try {
+        // Mengirim isi pesan promo kosong "" secara default
+        bool success = await apiService.insertData(
+          finalNama,
+          finalWa,
+          "", 
         );
 
-        Navigator.pop(context);
-      } else {
+        setState(() => _isSaving = false);
+
+        if (success) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Berhasil Simpan Pelanggan Baru!"), backgroundColor: Colors.green),
+          );
+          // Kembali ke halaman utama dan memicu loadData()
+          Navigator.pop(context, true);
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Gagal Simpan! Periksa koneksi atau database."), backgroundColor: Colors.red),
+          );
+        }
+      } catch (e) {
+        setState(() => _isSaving = false);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Gagal menyimpan data")),
+          SnackBar(content: Text("Terjadi kesalahan: $e"), backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  @override
-  void dispose() {
-    _nama_pelangganController.dispose();
-    _no_whatsappController.dispose();
-    _tanggal_notifikasiController.dispose();
-    _pesannotifikasiController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(100),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF5D48ED),
-            borderRadius: BorderRadius.only(bottomRight: Radius.circular(70)),
-          ),
-          child: const SafeArea(
-            child: Center(
-              child: Text(
-                "TAMBAH DATA PELANGGAN",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ),
-          ),
-        ),
-      ),
-
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20), // jarak dari tepi layar
-          child: Card( // card untuk memberikan efek bayangan dan border radius
-              elevation: 2, 
-             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-
-              child: Form(
-                key: _formKey,
-
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-
-                    _buildLabelField("Nama pelanggan"),
-                    TextFormField(
-                      controller: _nama_pelangganController,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return "Nama pelanggan wajib diisi";
-                        }
-                        return null;
-                      },
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: UnderlineInputBorder(),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    _buildLabelField("No whatsapp"),
-                    TextFormField(
-                      controller: _no_whatsappController,
-                      keyboardType: TextInputType.phone,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return "Nomor WA wajib diisi";
-                        }
-                        return null;
-                      },
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: UnderlineInputBorder(),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    _buildLabelField("pesan notifikasi promo"),
-                    TextFormField(
-                      controller: _pesannotifikasiController,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.grey[200],
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        hintText: " pesan promo ",
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-
-                              _buildLabelField("tanggal pengiriman"),
-
-                              TextFormField(
-                                controller: _tanggal_notifikasiController,
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                    isDense: true,
-                                    hintText: "Belum dipilih",
-                                    border: UnderlineInputBorder()),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        IconButton(
-                          icon: const Icon(
-                            Icons.calendar_month,
-                            size: 35,
-                            color: Color(0xFF5E5CE6),
-                          ),
-                          onPressed: () => _selectDate(context),
-                        )
-                      ],
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton(
-                        onPressed: simpanData,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A437E),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 40, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20)),
-                        ),
-                        child: const Text(
-                          "simpan",
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-
-      bottomNavigationBar: Container(
-        height: 80,
-        decoration: const BoxDecoration(
-          color: Color(0xFF00E5BC),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(25),
-            topRight: Radius.circular(25),
-          ),
-        ),
-
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-
-            _buildCircleIcon(
-              Icons.assignment,
-              Colors.yellow,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => Laporanpenjualan()),
-              ),
-            ),
-
-            _buildCircleIcon(
-              Icons.home_outlined,
-              const Color(0xFF1A437E),
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => Landingpage()),
-              ),
-            ),
-
-            _buildCircleIcon(
-              Icons.payments_outlined,
-              Colors.red,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => Laporankeuangan()),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLabelField(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
-      child: Text(label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _buildCircleIcon(IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildFooterIcon({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -297,7 +83,121 @@ class _TambahdatapelangganState extends State<Tambahdatapelanggan> {
           shape: BoxShape.circle,
           border: Border.all(color: Colors.black, width: 1.5),
         ),
-        child: Icon(icon, color: Colors.black, size: 28),
+        child: Icon(icon, color: Colors.white, size: 28),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF5D48ED),
+            borderRadius: BorderRadius.only(bottomRight: Radius.circular(70)),
+          ),
+          child: SafeArea(
+            child: Stack(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                const Center(
+                  child: Text(
+                    "TAMBAH DATA PELANGGAN",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
+              const Text("Nama Pelanggan", style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _namaController,
+                decoration: const InputDecoration(
+                  hintText: "Masukkan nama pelanggan baru",
+                  prefixIcon: Icon(Icons.person),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) => v!.trim().isEmpty ? "Nama wajib diisi" : null,
+              ),
+              const SizedBox(height: 16),
+              const Text("Nomor WhatsApp", style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _waController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  hintText: "Contoh: 081234567xxx",
+                  prefixIcon: Icon(Icons.phone),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) => v!.trim().isEmpty ? "Nomor WhatsApp wajib diisi" : null,
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: FilledButton(
+                  onPressed: _isSaving ? null : _submit,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF5D48ED),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isSaving 
+                    ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2) 
+                    : const Text("SIMPAN DATA", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        height: 80,
+        decoration: const BoxDecoration(
+          color: Color(0xFF00E5BC),
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildFooterIcon(
+              icon: Icons.assignment,
+              color: Colors.yellow[600]!,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Laporanpenjualan())),
+            ),
+            _buildFooterIcon(
+              icon: Icons.home,
+              color: const Color(0xFF1A437E),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const Landingpage())),
+            ),
+            _buildFooterIcon(
+              icon: Icons.payments,
+              color: Colors.red,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const Laporankeuangan())),
+            ),
+          ],
+        ),
       ),
     );
   }

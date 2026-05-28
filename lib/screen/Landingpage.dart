@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
 import 'package:flutter_application_1/screen/Datapelanggan.dart';
-import 'package:flutter_application_1/screen/Transaksi.dart';
+import 'package:flutter_application_1/screen/Transaksi';
 import 'package:flutter_application_1/screen/Laporanpenjualan.dart';
 import 'package:flutter_application_1/screen/Dataproduk.dart';
 import 'package:flutter_application_1/screen/Laporankeuangan.dart';
 import 'package:flutter_application_1/screen/Datapiutang.dart';
-import 'package:flutter_application_1/screen/Tambahdatapelanggan.dart';
-import 'package:flutter_application_1/screen/formpiutang.dart';
-
+ import 'package:flutter_application_1/screen/Transaksipengeluaran.dart';
+// import 'package:flutter_application_1/screen/Tambahdatapelanggan.dart';
+ import 'package:flutter_application_1/screen/jenistransaksipengeluaran.dart';
+import 'package:flutter_application_1/screen/jenistransaksipemasukan.dart';
+import 'package:flutter_application_1/screen/Jenisnotifikasi.dart';
 void main() {
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -55,16 +57,18 @@ class Landingpage extends StatelessWidget {
               mainAxisSpacing: 20,
               children: [
                
-                _buildMenuItem(context, Image.asset("images/transaksi.png", width: 60, height: 60), "transaksi", const Color(0xFFC5E1A5), Transaksi()),
-                
+                _buildMenuItem(context, Image.asset("images/transaksi.png", width: 60, height: 60), "transaksi pemasukan", const Color(0xFFC5E1A5), Jenistransaksipemasukan()),
+              
                 _buildMenuItem(context, Image.asset("images/laporan.png", width: 60, height: 60), "laporan penjualan", const Color(0xFFD4E157), Laporanpenjualan()),
                 _buildMenuItem(context, Image.asset("images/produk.png", width: 60, height: 60), "data produk", const Color(0xFF42A5F5), Dataproduk()),
                 _buildMenuItem(context, Image.asset("images/laporankeuangan.png", width: 60, height: 60), "laporan keuangan", const Color(0xFFFF7043), Laporankeuangan()),
                 _buildMenuItem(context, Image.asset("images/datahutang.png", width: 60, height: 60), "data Hutang", const Color(0xFFCE93D8), Datapiutang()),
-                _buildMenuItem(context, Image.asset("images/laporan.png",width: 60, height: 60),"formpiutang", const Color(0xFFFF7043), formpiutang()), 
-                _buildMenuItem(context, const Icon(Icons.person_outline, size: 60), "pelanggan", const Color(0xFF9C27B0), Tambahdatapelanggan()),
+                // _buildMenuItem(context, Image.asset("images/laporan.png",width: 60, height: 60),"formpiutang", const Color(0xFFFF7043), formpiutang()), 
+                //_buildMenuItem(context, const Icon(Icons.person_outline, size: 60), "pelanggan", const Color(0xFF9C27B0), Tambahdatapelanggan()),
                 _buildMenuItem(context, const Icon(Icons.assignment_ind_outlined, size: 60), "data pelanggan", const Color(0xFFE0E0E0), Datapelanggan()),
-                
+
+                _buildMenuItem(context, const Icon(Icons.mail_outline, size: 60), "Pesan", const Color(0xFFBDBDBD), JenisNotifikasi()),
+                  _buildMenuItem(context, Image(image: AssetImage("images/transaksi.png"), width: 60, height: 60), "transaksi pengeluaran", const Color.fromARGB(255, 189, 189, 189), Jenistransaksipengeluaran()),
               ],
             ),
           ),

@@ -3,9 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_application_1/model/postdatapelanggan.dart';
 
 class apidatapelanggan {
-  //final String baseUrl = 'http://10.0.2.2:8000/api/admin/data-pelanggans';
-  final String baseUrl = 'http://192.168.1.177:8000/api/pelanggan';
-
+  final String baseUrl = 'http://172.20.10.2:8000/api/pelanggan';
   final String apiToken = "1|fl4Xog5gUWR78vc40UDWAXGppHppCMPPXKpOd8sPeea9f88e";
 
   Future<Map<String, dynamic>> fetchTransaksi(int page) async {
@@ -13,15 +11,12 @@ class apidatapelanggan {
       Uri.parse('$baseUrl?page=$page'),
       headers: {
         "Accept": "application/json",
-        "Authorization": "Bearer $apiToken", // Tambahkan token di sini
+        "Authorization": "Bearer $apiToken",
       },
     );
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-
-      // Cek apakah struktur datanya data['data'] atau data['data']['data']
-      // Biasanya Rupadana ApiService membungkusnya dalam data['data']
       var listData = data['data'] is List ? data['data'] : data['data']['data'];
 
       List<Postdatapelanggan> datapelanggan = (listData as List)
@@ -37,34 +32,120 @@ class apidatapelanggan {
     }
   }
 
-  Future<bool> insertdatapelanggan(
+  // METHOD BARU: Ambil semua data pelanggan untuk autocomplete
+  Future<List<Postdatapelanggan>> fetchAllPelanggan() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl?page=1&limit=100'), // Ambil 100 data
+        headers: {
+          "Accept": "application/json",
+          "Authorization": "Bearer $apiToken",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        var listData = data['data'] is List ? data['data'] : data['data']['data'];
+        
+        List<Postdatapelanggan> datapelanggan = (listData as List)
+            .map((json) => Postdatapelanggan.fromJson(json))
+            .toList();
+        
+        return datapelanggan;
+      } else {
+        return [];
+      }
+    } catch (e) {
+      print("Error fetchAllPelanggan: $e");
+      return [];
+    }
+  }
+
+  Future<bool> insertData(
     String nama_pelanggan,
     String no_whatsapp,
-    String tanggal_notifikasi,
-    String pesannotifikasi,
+    String? pesannotifikasi,
   ) async {
     final response = await http.post(
       Uri.parse(baseUrl),
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "Authorization": "Bearer $apiToken", // Tambahkan token di sini
+        "Authorization": "Bearer $apiToken",
       },
       body: jsonEncode({
-
         "nama_pelanggan": nama_pelanggan,
         "no_whatsapp": no_whatsapp,
-        "pesannotifikasi": pesannotifikasi,
-        "tanggal_notifikasi": tanggal_notifikasi,
+      "pesannotifikasi": pesannotifikasi ?? "",
       }),
     );
-
-    print("STATUS PELANGGAN: ${response.statusCode}");
-    print("BODY PELANGGAN: ${response.body}");
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return true;
     } else {
+      return false;
+    }
+  }
+
+  // UPDATE DATA
+  Future<bool> updatePelanggan(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await http.put(
+        Uri.parse("$baseUrl/$id"),
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "Bearer $apiToken",
+        },
+        body: jsonEncode(data),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // HAPUS DATA
+  Future<bool> deletePelanggan(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/$id"),
+        headers: {
+          "Accept": "application/json",
+          "Authorization": "Bearer $apiToken",
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> sendBroadcast(String targets, String message) async {
+    try {
+      final url = Uri.parse("http://172.20.10.2:8000/api/broadcast-promo");
+      
+      final response = await http.post(
+        url,
+        headers: {
+          "Accept": "application/json",
+        },
+        body: {
+          'target': targets,
+          'message': message,
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      print("Status Code: ${response.statusCode}");
+      print("Respon: ${response.body}");
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (e) {
+      print("Terjadi kesalahan koneksi: $e");
       return false;
     }
   }
