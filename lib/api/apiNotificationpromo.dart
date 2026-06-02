@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class Apinotificationpromo {
-  final String baseUrl = "http://172.20.10.2:8000/api/promo";
+  final String baseUrl = "http://192.168.1.17:8000/api/promo";
   
   Future<bool> postNotification({
     required String nama,

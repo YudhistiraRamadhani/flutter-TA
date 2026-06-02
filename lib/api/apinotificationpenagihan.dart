@@ -1,7 +1,7 @@
 import 'package:http/http.dart' as http;
 
 class Apinotificationpenagihan {
-  final String baseUrl = "http://172.20.10.2:8000/api/penagihan";
+  final String baseUrl = "http://192.168.1.17:8000/api/penagihan";
   
   Future<bool> postPenagihan({
     required String nama,

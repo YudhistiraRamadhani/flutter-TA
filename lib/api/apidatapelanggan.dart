@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_application_1/model/postdatapelanggan.dart';
 
 class apidatapelanggan {
-  final String baseUrl = 'http://172.20.10.2:8000/api/pelanggan';
+  final String baseUrl = 'http://192.168.1.17:8000/api/pelanggan';
   final String apiToken = "1|fl4Xog5gUWR78vc40UDWAXGppHppCMPPXKpOd8sPeea9f88e";
 
   Future<Map<String, dynamic>> fetchTransaksi(int page) async {
@@ -32,11 +32,10 @@ class apidatapelanggan {
     }
   }
 
-  // METHOD BARU: Ambil semua data pelanggan untuk autocomplete
   Future<List<Postdatapelanggan>> fetchAllPelanggan() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl?page=1&limit=100'), // Ambil 100 data
+        Uri.parse('$baseUrl?page=1&limit=100'),
         headers: {
           "Accept": "application/json",
           "Authorization": "Bearer $apiToken",
@@ -76,7 +75,7 @@ class apidatapelanggan {
       body: jsonEncode({
         "nama_pelanggan": nama_pelanggan,
         "no_whatsapp": no_whatsapp,
-      "pesannotifikasi": pesannotifikasi ?? "",
+        "pesannotifikasi": pesannotifikasi ?? "",
       }),
     );
 
@@ -87,7 +86,6 @@ class apidatapelanggan {
     }
   }
 
-  // UPDATE DATA
   Future<bool> updatePelanggan(String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
@@ -105,7 +103,6 @@ class apidatapelanggan {
     }
   }
 
-  // HAPUS DATA
   Future<bool> deletePelanggan(String id) async {
     try {
       final response = await http.delete(
@@ -121,32 +118,48 @@ class apidatapelanggan {
     }
   }
 
+  // ... (bagian atas kode tetap sama)
+
   Future<bool> sendBroadcast(String targets, String message) async {
     try {
-      final url = Uri.parse("http://172.20.10.2:8000/api/broadcast-promo");
+      final url = Uri.parse("http://192.168.1.17:8000/api/broadcast-promo");
       
+      // Timeout ditingkatkan menjadi 10 menit (600 detik) 
+      // Karena Laravel akan mengirim pesan dengan delay sekuensial
       final response = await http.post(
         url,
         headers: {
           "Accept": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
         },
         body: {
           'target': targets,
           'message': message,
         },
-      ).timeout(const Duration(seconds: 15));
-
-      print("Status Code: ${response.statusCode}");
-      print("Respon: ${response.body}");
+      ).timeout(const Duration(minutes: 10)); 
 
       if (response.statusCode == 200) {
-        return true;
-      } else {
-        return false;
+        final responseData = json.decode(response.body);
+        return responseData['success'] ?? false;
       }
+      return false;
     } catch (e) {
-      print("Terjadi kesalahan koneksi: $e");
+      print("Error broadcast: $e");
       return false;
     }
+  }
+
+  // Gunakan ini untuk mengirim daftar pelanggan
+  Future<Map<String, int>> sendBatchBroadcast(List<Map<String, String>> targets, String message) async {
+    // Gabungkan nomor dengan koma agar dikirim dalam satu string target
+    // Laravel akan menangani perulangan dan jedanya (lebih aman)
+    String nomorGabungan = targets.map((t) => t['nomor']).join(',');
+    
+    bool success = await sendBroadcast(nomorGabungan, message);
+    
+    return {
+      'success': success ? 1 : 0,
+      'fail': success ? 0 : 1,
+    };
   }
 }
