@@ -115,7 +115,7 @@ class _EditDataprodukState extends State<EditDataproduk> {
                                       ? ClipRRect(
                                           borderRadius: BorderRadius.circular(15),
                                           child: Image.network(
-                                            "http://172.20.10.2:8000/storage/${widget.postproduk.image}",
+                                            "https://aplikasi-pencatatan-keuangan.onrender.com/storage/${widget.postproduk.image}",
                                             fit: BoxFit.cover,
                                             width: 150,
                                             height: 150,

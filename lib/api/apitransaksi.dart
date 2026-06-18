@@ -67,7 +67,7 @@ class PostTransaksi {
 }
 
 class Apitransaksi {
-  final String baseUrl = "http://192.168.1.17:8000/api";
+  final String baseUrl = "https://aplikasi-pencatatan-keuangan.onrender.com/api";
   
   // ==================== METHOD FETCH DATA ====================
 

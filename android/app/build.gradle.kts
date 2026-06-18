@@ -1,7 +1,9 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services") 
+   id("dev.flutter.flutter-gradle-plugin")
+
 }
 
 android {
@@ -50,4 +52,6 @@ flutter {
 dependencies {
     // Library pendukung untuk desugaring (WAJIB ADA)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
 }
+

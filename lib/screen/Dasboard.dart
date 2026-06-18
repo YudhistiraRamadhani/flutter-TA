@@ -36,8 +36,8 @@ class _DasboardState extends State<Dasboard> {
   };
 
   bool _isBackgroundLoading = false;
-  final String _baseUrl = "http://192.168.1.17:8000/api";
-
+  final String _baseUrl = "https://aplikasi-pencatatan-keuangan.onrender.com/api";
+  
   @override
   void initState() {
     super.initState();

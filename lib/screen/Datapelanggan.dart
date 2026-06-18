@@ -22,8 +22,12 @@ class _DatapelangganState extends State<Datapelanggan> {
   List<String> selectedPelanggan = []; 
   
   bool isLoading = true;
+  bool isBroadcastSameMessage = false;
+  String? detectedSameMessage;
+  List<Postdatapelanggan> pelangganWithSameMessage = [];
   
   TextEditingController searchController = TextEditingController();
+  TextEditingController promoMessageController = TextEditingController();
 
   @override
   void initState() {
@@ -40,6 +44,9 @@ class _DatapelangganState extends State<Datapelanggan> {
         pelanggan = data['datapelanggan'];
         filteredPelanggan = pelanggan;
         selectedPelanggan.clear(); 
+        isBroadcastSameMessage = false;
+        detectedSameMessage = null;
+        pelangganWithSameMessage = [];
         isLoading = false;
       });
     } catch (e) {
@@ -71,438 +78,278 @@ class _DatapelangganState extends State<Datapelanggan> {
       } else {
         selectedPelanggan.clear();
       }
+      _checkSameMessageOnSelected();
     });
   }
 
   void _onCheckboxChanged(String id, bool? value) {
     setState(() {
       if (value == true) {
-        if (!selectedPelanggan.contains(id)) {
-          selectedPelanggan.add(id);
+        final selectedData = pelanggan.firstWhere((p) => p.id.toString() == id);
+        final selectedMessage = selectedData.pesannotifikasi ?? "";
+        
+        if (selectedMessage.isNotEmpty) {
+          final pelangganWithSameMsg = pelanggan.where((p) => 
+            p.pesannotifikasi != null && 
+            p.pesannotifikasi == selectedMessage
+          ).toList();
+          
+          for (var p in pelangganWithSameMsg) {
+            if (!selectedPelanggan.contains(p.id.toString())) {
+              selectedPelanggan.add(p.id.toString());
+            }
+          }
+        } else {
+          if (!selectedPelanggan.contains(id)) {
+            selectedPelanggan.add(id);
+          }
         }
       } else {
         selectedPelanggan.remove(id);
       }
+      _checkSameMessageOnSelected();
     });
   }
 
-  void _showSendMessageDialog() {
-    final formKey = GlobalKey<FormState>();
-    final namaController = TextEditingController();
-    final waController = TextEditingController();
-    final pesanController = TextEditingController();
+  void _checkSameMessageOnSelected() {
+    if (selectedPelanggan.isEmpty) {
+      isBroadcastSameMessage = false;
+      detectedSameMessage = null;
+      pelangganWithSameMessage = [];
+      return;
+    }
+
+    final selectedData = pelanggan.where((p) => selectedPelanggan.contains(p.id.toString())).toList();
     
-    TextEditingController? autocompleteNamaController;
-    TextEditingController? autocompleteWaController;
-    Postdatapelanggan? selectedPelangganData;
+    if (selectedData.isEmpty) {
+      isBroadcastSameMessage = false;
+      detectedSameMessage = null;
+      pelangganWithSameMessage = [];
+      return;
+    }
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Row(
-                children: [
-                  Icon(Icons.send, color: Colors.blue),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      "Kirim Pesan ke Pelanggan",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("Cari Pelanggan", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      const SizedBox(height: 6),
-                      Autocomplete<Postdatapelanggan>(
-                        optionsBuilder: (TextEditingValue textEditingValue) {
-                          if (textEditingValue.text.isEmpty) return const Iterable<Postdatapelanggan>.empty();
-                          return pelanggan.where((p) => 
-                            p.nama_pelanggan!.toLowerCase().contains(textEditingValue.text.toLowerCase())
-                          );
-                        },
-                        displayStringForOption: (Postdatapelanggan option) => option.nama_pelanggan ?? '',
-                        fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
-                          autocompleteNamaController = textEditingController;
-                          return TextFormField(
-                            controller: textEditingController,
-                            focusNode: focusNode,
-                            decoration: const InputDecoration(
-                              hintText: "Ketik nama pelanggan...", 
-                              border: OutlineInputBorder(), 
-                              prefixIcon: Icon(Icons.person, size: 20),
-                              suffixIcon: Icon(Icons.search, size: 20),
-                            ),
-                            validator: (v) => selectedPelangganData == null && v!.trim().isEmpty 
-                                ? "Pilih pelanggan terlebih dahulu" 
-                                : null,
-                            onChanged: (val) {
-                              namaController.text = val;
-                              if (selectedPelangganData != null) {
-                                setDialogState(() {
-                                  selectedPelangganData = null;
-                                });
-                              }
-                            },
-                          );
-                        },
-                        onSelected: (Postdatapelanggan selected) {
-                          setDialogState(() {
-                            selectedPelangganData = selected;
-                          });
-                          namaController.text = selected.nama_pelanggan ?? '';
-                          waController.text = selected.no_whatsapp ?? '';
-                          pesanController.text = selected.pesannotifikasi ?? '';
-                          if (autocompleteWaController != null) {
-                            autocompleteWaController!.text = selected.no_whatsapp ?? '';
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      const Text("Nomor WhatsApp", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      const SizedBox(height: 6),
-                      Autocomplete<Postdatapelanggan>(
-                        optionsBuilder: (TextEditingValue textEditingValue) {
-                          if (textEditingValue.text.isEmpty) return const Iterable<Postdatapelanggan>.empty();
-                          return pelanggan.where((p) => p.no_whatsapp!.contains(textEditingValue.text));
-                        },
-                        displayStringForOption: (Postdatapelanggan option) => option.no_whatsapp ?? '',
-                        fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
-                          autocompleteWaController = textEditingController;
-                          return TextFormField(
-                            controller: textEditingController,
-                            focusNode: focusNode,
-                            keyboardType: TextInputType.phone,
-                            decoration: const InputDecoration(
-                              hintText: "Ketik nomor WA...", 
-                              border: OutlineInputBorder(), 
-                              prefixIcon: Icon(Icons.phone, size: 20),
-                              suffixIcon: Icon(Icons.search, size: 20),
-                            ),
-                            validator: (v) => v!.trim().isEmpty ? "Nomor WA wajib diisi" : null,
-                            onChanged: (val) {
-                              waController.text = val;
-                              if (selectedPelangganData != null) {
-                                setDialogState(() {
-                                  selectedPelangganData = null;
-                                });
-                              }
-                            },
-                          );
-                        },
-                        onSelected: (Postdatapelanggan selected) {
-                          setDialogState(() {
-                            selectedPelangganData = selected;
-                          });
-                          waController.text = selected.no_whatsapp ?? '';
-                          namaController.text = selected.nama_pelanggan ?? '';
-                          pesanController.text = selected.pesannotifikasi ?? '';
-                          if (autocompleteNamaController != null) {
-                            autocompleteNamaController!.text = selected.nama_pelanggan ?? '';
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      const Text("Isi Pesan", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: pesanController,
-                        maxLines: 5,
-                        minLines: 3,
-                        decoration: InputDecoration(
-                          hintText: "Tulis pesan yang akan dikirim...",
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        validator: (v) => v!.trim().isEmpty ? "Pesan tidak boleh kosong" : null,
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.info_outline, size: 16, color: Colors.orange.shade700),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Text(
-                                "Pesan akan dikirim ke nomor WhatsApp pelanggan yang dipilih",
-                                style: TextStyle(fontSize: 11),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("BATAL", style: TextStyle(color: Colors.grey)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () async {
-                    if (formKey.currentState!.validate()) {
-                      if (selectedPelangganData == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Silakan pilih pelanggan dari daftar autocomplete"),
-                            backgroundColor: Colors.red,
-                            duration: Duration(seconds: 3),
-                          ),
-                        );
-                        return;
-                      }
+    final firstSelectedMessage = selectedData.first.pesannotifikasi ?? "";
+    
+    if (firstSelectedMessage.isEmpty) {
+      isBroadcastSameMessage = false;
+      detectedSameMessage = null;
+      pelangganWithSameMessage = [];
+      return;
+    }
 
-                      String nomorTujuan = waController.text.trim();
-                      String pesanToSend = pesanController.text.trim();
-                      String namaPelanggan = namaController.text.trim();
-                      
-                      Navigator.pop(context);
-                      
-                      try {
-                        bool success = await api.sendBroadcast(nomorTujuan, pesanToSend);
-                        
-                        if (mounted) {
-                          if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("✅ Pesan berhasil dikirim ke $namaPelanggan"),
-                                backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("❌ Gagal mengirim pesan. Cek koneksi internet dan log console."),
-                                backgroundColor: Colors.red,
-                                behavior: SnackBarBehavior.floating,
-                                duration: Duration(seconds: 5),
-                              ),
-                            );
-                          }
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text("❌ Error: $e"),
-                              backgroundColor: Colors.red,
-                              behavior: SnackBarBehavior.floating,
-                              duration: const Duration(seconds: 5),
-                            ),
-                          );
-                        }
-                      }
-                    }
-                  },
-                  child: const Text("KIRIM PESAN"),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    bool allHaveSameMessage = selectedData.every((p) => 
+      (p.pesannotifikasi ?? "") == firstSelectedMessage
     );
-  }
 
-  void _showBroadcastConfirmationDialog() {
-    final pesanController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    
-    List<Map<String, String>> targetPelanggan = [];
-    
-    for (String id in selectedPelanggan) {
-      final p = pelanggan.firstWhere((item) => item.id.toString() == id);
-      targetPelanggan.add({
-        'id': id,
-        'nama': p.nama_pelanggan ?? '-',
-        'nomor': p.no_whatsapp ?? '',
+    if (allHaveSameMessage && selectedData.length > 1) {
+      final allWithSameMessage = pelanggan.where((p) => 
+        (p.pesannotifikasi ?? "") == firstSelectedMessage
+      ).toList();
+      
+      setState(() {
+        isBroadcastSameMessage = true;
+        detectedSameMessage = firstSelectedMessage;
+        pelangganWithSameMessage = allWithSameMessage;
+      });
+    } else {
+      setState(() {
+        isBroadcastSameMessage = false;
+        detectedSameMessage = null;
+        pelangganWithSameMessage = [];
       });
     }
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.campaign, color: Colors.green),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text(
-                "Broadcast Pesan",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "📊 Ringkasan Pengiriman",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue.shade800),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Target pengiriman: ${targetPelanggan.length} pelanggan",
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Detail: ${targetPelanggan.take(3).map((p) => p['nama']).join(', ')}${targetPelanggan.length > 3 ? '...' : ''}",
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        constraints: const BoxConstraints(maxHeight: 100),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: targetPelanggan.map((p) => 
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2),
-                                child: Text(
-                                  "• ${p['nama']}: ${p['nomor']}",
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                              )
-                            ).toList(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  "✏️ Isi Pesan",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: pesanController,
-                  maxLines: 5,
-                  minLines: 3,
-                  decoration: InputDecoration(
-                    hintText: "Tulis pesan yang akan dikirim...",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return "Pesan tidak boleh kosong";
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 16, color: Colors.orange.shade700),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          "Pesan akan dikirim ke semua pelanggan yang dipilih",
-                          style: TextStyle(fontSize: 11),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("BATAL", style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(context);
-                
-                String pesanToSend = pesanController.text.trim();
-                
-                final result = await api.sendBatchBroadcast(targetPelanggan, pesanToSend);
-                
-                if (mounted) {
-                  setState(() {
-                    selectedPelanggan.clear();
-                  });
-                  
-                  String message = "✅ Berhasil: ${result['success']}, ❌ Gagal: ${result['fail']}";
-                  
-                  await loadData();
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(message),
-                      backgroundColor: result['success']! > 0 ? Colors.green : Colors.red,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 4),
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text("KIRIM KE SEMUA"),
-          ),
+  }
+
+  void _sendBroadcastSameMessage() async {
+  if (pelangganWithSameMessage.isEmpty) return;
+
+  setState(() => isLoading = true);
+
+  int successCount = 0;
+  int totalCount = pelangganWithSameMessage.length;
+
+  for (var p in pelangganWithSameMessage) {
+    if (p.no_whatsapp != null &&
+        p.no_whatsapp!.isNotEmpty &&
+        p.pesannotifikasi != null &&
+        p.pesannotifikasi!.isNotEmpty) {
+
+      bool success = await api.sendBroadcast(
+        [
+          {
+            'target': p.no_whatsapp!,
+          }
         ],
+        p.pesannotifikasi!,
+      );
+
+      if (success) successCount++;
+    }
+  }
+
+  if (mounted) {
+    setState(() {
+      isLoading = false;
+      selectedPelanggan.clear();
+      isBroadcastSameMessage = false;
+      detectedSameMessage = null;
+      pelangganWithSameMessage = [];
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "Broadcast pesan sama: Berhasil ke $successCount dari $totalCount pelanggan",
+        ),
+        backgroundColor:
+            successCount > 0 ? Colors.green : Colors.red,
       ),
     );
+  }
+}
+
+void _sendBroadcast() async {
+  if (selectedPelanggan.isEmpty) return;
+
+  setState(() => isLoading = true);
+
+  try {
+    int successCount = 0;
+
+    for (String id in selectedPelanggan) {
+
+      final p = pelanggan.firstWhere(
+        (item) => item.id.toString() == id,
+      );
+
+      String nomor = p.no_whatsapp!;
+
+      String isiPesan =
+          (p.pesannotifikasi != null &&
+                  p.pesannotifikasi!.isNotEmpty)
+              ? p.pesannotifikasi!
+              : "";
+
+      if (isiPesan.isNotEmpty) {
+
+        bool success = await api.sendBroadcast(
+          [
+            {
+              'target': nomor,
+            }
+          ],
+          isiPesan,
+        );
+
+        if (success) successCount++;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+        selectedPelanggan.clear();
+        isBroadcastSameMessage = false;
+        detectedSameMessage = null;
+        pelangganWithSameMessage = [];
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Berhasil mengirim $successCount dari ${selectedPelanggan.length} pesan",
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+
+  } catch (e) {
+
+    setState(() => isLoading = false);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Gagal mengirim: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
+  Future<void> _sendSelectedPromoMessage() async {
+    if (selectedPelanggan.isEmpty) return;
+
+    final message = promoMessageController.text.trim();
+    if (message.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Pesan promo tidak boleh kosong"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    final targets = pelanggan
+        .where((p) => selectedPelanggan.contains(p.id.toString()) && p.no_whatsapp != null && p.no_whatsapp!.isNotEmpty)
+        .map((p) => {'target': p.no_whatsapp!})
+        .toList();
+
+    if (targets.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Pilih pelanggan dengan nomor WhatsApp valid"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      bool success;
+      if (targets.length <= 20) {
+        success = await api.sendBroadcast(targets, message);
+      } else {
+        final result = await api.sendBatchBroadcast(targets, message);
+        success = result['success'] == targets.length;
+      }
+
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          promoMessageController.clear();
+          selectedPelanggan.clear();
+          isBroadcastSameMessage = false;
+          detectedSameMessage = null;
+          pelangganWithSameMessage = [];
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success ? "Pesan berhasil dikirim ke ${targets.length} pelanggan" : "Gagal mengirim pesan ke pelanggan",
+            ),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal mengirim: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _confirmDelete(String id) {
@@ -530,12 +377,155 @@ class _DatapelangganState extends State<Datapelanggan> {
     );
   }
 
+  // ================= FORM POP-UP PESAN PROMO + AUTOCOMPLETE =================
+  void _showFormPesanPromoDialog() {
+    final formKeyPromo = GlobalKey<FormState>();
+    final namaController = TextEditingController();
+    final waController = TextEditingController();
+    final promoController = TextEditingController();
+    
+    TextEditingController? autocompleteNamaController;
+    TextEditingController? autocompleteWaController;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Buat Pesan Promo Pelanggan", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKeyPromo,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Nama Pelanggan", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  Autocomplete<Postdatapelanggan>(
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) return const Iterable<Postdatapelanggan>.empty();
+                      return pelanggan.where((p) => p.nama_pelanggan!.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                    },
+                    displayStringForOption: (Postdatapelanggan option) => option.nama_pelanggan ?? '',
+                    fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                      autocompleteNamaController = textEditingController;
+                      return TextFormField(
+                        controller: textEditingController,
+                        focusNode: focusNode,
+                        decoration: const InputDecoration(hintText: "Cari nama...", border: OutlineInputBorder(), prefixIcon: Icon(Icons.person, size: 20)),
+                        validator: (v) => v!.trim().isEmpty ? "Nama wajib diisi" : null,
+                        onChanged: (val) {
+                          namaController.text = val;
+                        },
+                      );
+                    },
+                    onSelected: (Postdatapelanggan selected) {
+                      namaController.text = selected.nama_pelanggan ?? '';
+                      waController.text = selected.no_whatsapp ?? '';
+                      promoController.text = selected.pesannotifikasi ?? '';
+                      if (autocompleteWaController != null) {
+                        autocompleteWaController!.text = selected.no_whatsapp ?? '';
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  const Text("Nomor WhatsApp", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  Autocomplete<Postdatapelanggan>(
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) return const Iterable<Postdatapelanggan>.empty();
+                      return pelanggan.where((p) => p.no_whatsapp!.contains(textEditingValue.text));
+                    },
+                    displayStringForOption: (Postdatapelanggan option) => option.no_whatsapp ?? '',
+                    fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                      autocompleteWaController = textEditingController;
+                      return TextFormField(
+                        controller: textEditingController,
+                        focusNode: focusNode,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(hintText: "Cari nomor WA...", border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone, size: 20)),
+                        validator: (v) => v!.trim().isEmpty ? "Nomor WA wajib diisi" : null,
+                        onChanged: (val) {
+                          waController.text = val;
+                        },
+                      );
+                    },
+                    onSelected: (Postdatapelanggan selected) {
+                      waController.text = selected.no_whatsapp ?? '';
+                      namaController.text = selected.nama_pelanggan ?? '';
+                      promoController.text = selected.pesannotifikasi ?? '';
+                      if (autocompleteNamaController != null) {
+                        autocompleteNamaController!.text = selected.nama_pelanggan ?? '';
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  const Text("Isi Teks Pesan Promo", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: promoController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(hintText: "Tulis draf promo toko di sini...", border: OutlineInputBorder()),
+                    validator: (v) => v!.trim().isEmpty ? "Pesan promo tidak boleh kosong" : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("BATAL")),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5D48ED)),
+              onPressed: () async {
+                if (formKeyPromo.currentState!.validate()) {
+                  Navigator.pop(context);
+                  setState(() => isLoading = true);
+                  try {
+                    final nomor = waController.text.trim();
+                    final pesan = promoController.text.trim();
+
+                    bool success = false;
+                    if (nomor.isNotEmpty && pesan.isNotEmpty) {
+                      success = await api.sendBroadcast(
+                        [
+                          {'target': nomor},
+                        ],
+                        pesan,
+                      );
+                    }
+
+                    if (mounted) {
+                      setState(() => isLoading = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            success ? "Pesan berhasil dikirim!" : "Gagal mengirim pesan",
+                          ),
+                          backgroundColor: success ? Colors.green : Colors.red,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    setState(() => isLoading = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+                    }
+                  }
+                }
+              },
+              child: const Text("KIRIM", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildFooterIcon({required IconData icon, required Color color, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 50, 
-        height: 50,
+        width: 50, height: 50,
         decoration: BoxDecoration(
           color: color, 
           shape: BoxShape.circle, 
@@ -599,6 +589,29 @@ class _DatapelangganState extends State<Datapelanggan> {
                   ),
                 ),
                 
+                if (isBroadcastSameMessage)
+                  Container(
+                    margin: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            "Terpilih ${selectedPelanggan.length} pelanggan dengan PESAN SAMA. Akan mengirim ke ${pelangganWithSameMessage.length} pelanggan yang memiliki pesan '${detectedSameMessage}'.",
+                            style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                
                 CheckboxListTile(
                   title: const Text("Pilih Semua", style: TextStyle(fontSize: 14)),
                   value: isAllSelected,
@@ -630,11 +643,11 @@ class _DatapelangganState extends State<Datapelanggan> {
                         child: SizedBox(
                           height: 45,
                           child: ElevatedButton.icon(
-                            onPressed: _showSendMessageDialog,
-                            icon: const Icon(Icons.send, color: Colors.white, size: 18),
-                            label: const Text("KIRIM PESAN", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: _showFormPesanPromoDialog,
+                            icon: const Icon(Icons.chat_bubble, color: Colors.white, size: 18),
+                            label: const Text("PESAN PROMO", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue, 
+                              backgroundColor: Colors.orange, 
                               foregroundColor: Colors.white, 
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
                             ),
@@ -644,6 +657,44 @@ class _DatapelangganState extends State<Datapelanggan> {
                     ],
                   ),
                 ),
+                if (selectedPelanggan.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 12),
+                        const Text(
+                          "Tulis pesan promo untuk pelanggan terpilih",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: promoMessageController,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            hintText: "Tulis pesan promo...",
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          height: 45,
+                          child: ElevatedButton(
+                            onPressed: isLoading ? null : _sendSelectedPromoMessage,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Text(
+                              isLoading ? "MENGIRIM..." : "KIRIM KE ${selectedPelanggan.length}",
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 10),
                 Expanded(
                   child: SingleChildScrollView(
@@ -681,24 +732,22 @@ class _DatapelangganState extends State<Datapelanggan> {
                                   size: 20,
                                 ),
                               ),
-                              DataCell(
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.visibility, color: Colors.green, size: 20), 
-                                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DetailDatapelanggan(pelanggan: item))).then((v) => loadData())
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit, color: Colors.blue, size: 20), 
-                                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => EditDatapelanggan(pelanggan: item))).then((v) => loadData())
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red, size: 20), 
-                                      onPressed: () => _confirmDelete(item.id.toString())
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              DataCell(Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.visibility, color: Colors.green, size: 20), 
+                                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DetailDatapelanggan(pelanggan: item))).then((v) => loadData())
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, color: Colors.blue, size: 20), 
+                                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => EditDatapelanggan(pelanggan: item))).then((v) => loadData())
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red, size: 20), 
+                                    onPressed: () => _confirmDelete(item.id.toString())
+                                  ),
+                                ],
+                              )),
                             ],
                           );
                         }).toList(),
@@ -727,15 +776,17 @@ class _DatapelangganState extends State<Datapelanggan> {
           ? FloatingActionButton.extended(
               onPressed: isLoading 
                   ? null 
-                  : _showBroadcastConfirmationDialog,
+                  : (isBroadcastSameMessage ? _sendBroadcastSameMessage : _sendBroadcast),
               label: Text(
                 isLoading 
                     ? "MENGIRIM..." 
-                    : "BROADCAST (${selectedPelanggan.length})",
+                    : (isBroadcastSameMessage 
+                        ? "BROADCAST PESAN SAMA (${pelangganWithSameMessage.length})" 
+                        : "KIRIM KE ${selectedPelanggan.length}"),
                 style: const TextStyle(fontSize: 12),
               ),
-              icon: const Icon(Icons.campaign),
-              backgroundColor: Colors.green,
+              icon: Icon(isBroadcastSameMessage ? Icons.broadcast_on_personal : Icons.campaign),
+              backgroundColor: isBroadcastSameMessage ? Colors.orange : Colors.green,
             )
           : null,
     );

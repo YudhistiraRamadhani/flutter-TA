@@ -39,7 +39,7 @@ class NotificationService {
     print("MASUK loadNotifikasiDariLaravel");
 
     try {
-      final url = Uri.parse('http://10.214.100.162:8000/api/notifikasi');
+      final url = Uri.parse('http://192.168.1.84:8000/api/notifikasi');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

@@ -4,9 +4,9 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_application_1/model/postdatapiutang.dart';
 
 class Apidatapiutang {
-  final String baseUrl = 'http://192.168.1.17:8000/api/piutang';
-  final String pelangganUrl = 'http://192.168.1.17:8000/api/get-pelanggan';
-  final String produkUrl = 'http://192.168.1.17:8000/api/get-produk';
+  final String baseUrl = 'https://aplikasi-pencatatan-keuangan.onrender.com/api/piutang';
+  final String pelangganUrl = 'https://aplikasi-pencatatan-keuangan.onrender.com/api/get-pelanggan';
+  final String produkUrl = 'https://aplikasi-pencatatan-keuangan.onrender.com/api/get-produk';
   final String apiToken = "1|fl4Xog5gUWR78vc40UDWAXGppHppCMPPXKpOd8sPeea9f88e";
 
   // 1. Ambil Semua Data Piutang
@@ -168,7 +168,7 @@ class Apidatapiutang {
   // 7. Send Broadcast WhatsApp
   Future<bool> sendBroadcast(String targets, String message) async {
     try {
-      final url = Uri.parse("http://192.168.1.17:8000/api/broadcast-promo");
+      final url = Uri.parse("https://aplikasi-pencatatan-keuangan.onrender.com/api/broadcast-promo");
       
       final response = await http.post(
         url,

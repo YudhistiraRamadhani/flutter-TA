@@ -5,7 +5,7 @@ import '../model/postproduk.dart';
 
 class Repository {
 
-  final String baseUrl = 'http://192.168.1.17:8000/api/produks';
+  final String baseUrl = 'https://aplikasi-pencatatan-keuangan.onrender.com/api/produks';
   
   // Token Bearer dari API Laravel Anda
   final String apiToken = "1|fl4Xog5gUWR78vc40UDWAXGppHppCMPPXKpOd8sPeea9f88e";

@@ -168,7 +168,7 @@ class _DataprodukState extends State<Dataproduk> {
             child: Padding(
               padding: const EdgeInsets.all(10.0),
               child: Image.network(
-                "http://172.20.10.2:8000/storage/${produk.image}", 
+                "https://aplikasi-pencatatan-keuangan.onrender.com/storage/${produk.image}", 
                 errorBuilder: (context, error, stackTrace) {
                   return const Icon(Icons.broken_image, size: 50, color: Colors.white);
                 },

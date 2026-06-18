@@ -44,19 +44,50 @@ class _DetailDatapelangganState extends State<DetailDatapelanggan> {
 
     setState(() => isSending = true);
     try {
-      bool success = await api.sendBroadcast(
-        widget.pelanggan.no_whatsapp!, 
-        _pesanController.text
-      );
-
+      // Membungkus nomor WhatsApp ke dalam List<Map<String, String>>
+      // karena API mengharapkan List, bukan String tunggal
+      List<Map<String, String>> targetPelanggan = [
+        {
+          'id': widget.pelanggan.id.toString(),
+          'nama': widget.pelanggan.nama_pelanggan ?? '',
+          'nomor': widget.pelanggan.no_whatsapp!,
+        }
+      ];
+      
+      String pesanToSend = _pesanController.text.trim();
+      
+      // Menggunakan sendBatchBroadcast karena API mengharapkan List
+      final result = await api.sendBatchBroadcast(targetPelanggan, pesanToSend);
+      
       if (mounted) {
         setState(() => isSending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? "Pesan berhasil dikirim via Fonnte!" : "Gagal mengirim via Fonnte"),
-            backgroundColor: success ? Colors.green : Colors.red,
-          ),
-        );
+        
+        // PERBAIKAN: Mengecek null safety dengan aman
+        int successCount = result['success'] ?? 0;
+        int failCount = result['fail'] ?? 0;
+        
+        if (successCount > 0 && failCount == 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("✅ Pesan berhasil dikirim via Fonnte!"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else if (successCount > 0 && failCount > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("⚠️ Sebagian pesan terkirim: Berhasil $successCount, Gagal $failCount"),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("❌ Gagal mengirim pesan via Fonnte"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       setState(() => isSending = false);

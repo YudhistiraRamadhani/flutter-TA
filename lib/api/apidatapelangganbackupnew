@@ -3,10 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_application_1/model/postdatapelanggan.dart';
 
 class apidatapelanggan {
-  final String baseUrl = 'https://aplikasi-pencatatan-keuangan.onrender.com/api/pelanggan';
+  final String baseUrl = 'http://192.168.1.17:8000/api/pelanggan';
   final String apiToken = "1|fl4Xog5gUWR78vc40UDWAXGppHppCMPPXKpOd8sPeea9f88e";
-
-  // --- FUNGSI CRUD ---
 
   Future<Map<String, dynamic>> fetchTransaksi(int page) async {
     final response = await http.get(
@@ -48,18 +46,25 @@ class apidatapelanggan {
         final data = json.decode(response.body);
         var listData = data['data'] is List ? data['data'] : data['data']['data'];
         
-        return (listData as List)
+        List<Postdatapelanggan> datapelanggan = (listData as List)
             .map((json) => Postdatapelanggan.fromJson(json))
             .toList();
+        
+        return datapelanggan;
+      } else {
+        return [];
       }
-      return [];
     } catch (e) {
       print("Error fetchAllPelanggan: $e");
       return [];
     }
   }
 
-  Future<bool> insertData(String nama_pelanggan, String no_whatsapp, String? pesannotifikasi) async {
+  Future<bool> insertData(
+    String nama_pelanggan,
+    String no_whatsapp,
+    String? pesannotifikasi,
+  ) async {
     final response = await http.post(
       Uri.parse(baseUrl),
       headers: {
@@ -73,7 +78,12 @@ class apidatapelanggan {
         "pesannotifikasi": pesannotifikasi ?? "",
       }),
     );
-    return response.statusCode == 200 || response.statusCode == 201;
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   Future<bool> updatePelanggan(String id, Map<String, dynamic> data) async {
@@ -108,13 +118,14 @@ class apidatapelanggan {
     }
   }
 
-  // --- FUNGSI BROADCAST AMAN ---
+  // ... (bagian atas kode tetap sama)
 
-  /// Fungsi untuk mengirim satu batch (maksimal 20 data) ke Laravel
-  Future<bool> sendBroadcast(List<Map<String, String>> targets, String message) async {
+  Future<bool> sendBroadcast(String targets, String message) async {
     try {
-      final url = Uri.parse("https://aplikasi-pencatatan-keuangan.onrender.com/api/broadcast-promo");
+      final url = Uri.parse("http://192.168.1.17:8000/api/broadcast-promo");
       
+      // Timeout ditingkatkan menjadi 10 menit (600 detik) 
+      // Karena Laravel akan mengirim pesan dengan delay sekuensial
       final response = await http.post(
         url,
         headers: {
@@ -122,16 +133,14 @@ class apidatapelanggan {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: {
-          // Tetap kirim sebagai jsonEncode karena Laravel menggunakan json_decode
-          'target': jsonEncode(targets), 
+          'target': targets,
           'message': message,
         },
-      ).timeout(const Duration(minutes: 2)); // Waktu tunggu dikurangi karena Laravel merespons instan
+      ).timeout(const Duration(minutes: 10)); 
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
-        print("Response dari Server: $responseData");
-        return responseData['status'] ?? false;
+        return responseData['success'] ?? false;
       }
       return false;
     } catch (e) {
@@ -140,37 +149,17 @@ class apidatapelanggan {
     }
   }
 
-  /// Fungsi utama untuk memecah daftar pelanggan menjadi batch (20 data)
-  Future<Map<String, int>> sendBatchBroadcast(List<Map<String, String>> allTargets, String message) async {
-    int totalSuccess = 0;
-    int totalFail = 0;
-
-    for (var i = 0; i < allTargets.length; i += 20) {
-      int end = (i + 20 < allTargets.length) ? i + 20 : allTargets.length;
-      List<Map<String, String>> batch = allTargets.sublist(i, end);
-
-      print("Mengirim batch ${i ~/ 20 + 1} dengan ${batch.length} target...");
-      
-      bool success = await sendBroadcast(batch, message);
-      
-      if (success) {
-        totalSuccess += batch.length;
-        print("Batch ${i ~/ 20 + 1} berhasil.");
-      } else {
-        totalFail += batch.length;
-        print("Batch ${i ~/ 20 + 1} gagal.");
-      }
-
-      // Istirahat 30 menit jika masih ada data tersisa untuk keamanan akun
-      if (end < allTargets.length) {
-        print("Batch selesai, menunggu 30 menit untuk antrean Fonnte berikutnya...");
-        await Future.delayed(const Duration(minutes: 30));
-      }
-    }
+  // Gunakan ini untuk mengirim daftar pelanggan
+  Future<Map<String, int>> sendBatchBroadcast(List<Map<String, String>> targets, String message) async {
+    // Gabungkan nomor dengan koma agar dikirim dalam satu string target
+    // Laravel akan menangani perulangan dan jedanya (lebih aman)
+    String nomorGabungan = targets.map((t) => t['nomor']).join(',');
+    
+    bool success = await sendBroadcast(nomorGabungan, message);
     
     return {
-      'success': totalSuccess, 
-      'fail': totalFail
+      'success': success ? 1 : 0,
+      'fail': success ? 0 : 1,
     };
   }
 }

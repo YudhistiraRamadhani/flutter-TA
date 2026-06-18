@@ -1,16 +1,43 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 
-class NotifikasiService {
-  static const String baseUrl = "http://192.168.1.17:8000/api";
+class apiNotificationLocal {
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
-  static Future<List<dynamic>> fetchNotifikasi() async {
-    final response = await http.get(Uri.parse('$baseUrl/notifikasi'));
+  // Inisialisasi
+  Future<void> initNotification() async {
+    tz.initializeTimeZones();
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings settings = InitializationSettings(android: androidSettings);
+    await _notificationsPlugin.initialize(settings);
+  }
 
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Gagal ambil notifikasi');
-    }
+  // Penjadwalan Notifikasi
+  Future<void> showScheduledNotification({
+    required int id,
+    required String title,
+    required String body,
+    required int seconds,
+  }) async {
+    await _notificationsPlugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds)),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'main_channel_id',
+          'Main Channel',
+          importance: Importance.max,
+          priority: Priority.high,
+          showWhen: true,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
   }
 }

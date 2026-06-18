@@ -131,7 +131,7 @@ class _DetailprodukState extends State<Detailproduk> {
           Center(
             child: post.image != null
                 ? Image.network(
-                    "http://172.20.10.2:8000/storage/${post.image}?v=${DateTime.now().millisecondsSinceEpoch}",
+                    "https://aplikasi-pencatatan-keuangan.onrender.com/storage/${post.image}?v=${DateTime.now().millisecondsSinceEpoch}",
                     height: 120,
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
